@@ -2,8 +2,8 @@
 Create a custom Bootable ISO for Rocky Linux
 
 ## Requirement 
-System: Rocky Linux 9 over  
-Hosts with KVM functionality enabled  
+This script is intended to run on Rocky Linux9.
+Hosts with KVM functionality enabled  (Use qemu-kvm)
 
 ## Requirement Packages
 qemu-kvm  
