@@ -1,0 +1,9 @@
+# Ignore everything in these directories
+build-iso/*
+logs/*
+tmp/*
+
+# But keep the directories themselves
+!logs/.gitkeep
+!tmp/.gitkeep
+

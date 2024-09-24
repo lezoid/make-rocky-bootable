@@ -66,7 +66,7 @@ fi
 
 if [ -d "$script_dir/tmp" ]; then
     echo "Cleaning up temporary files (only the contents)..."
-    rm -rf "$script_dir/tmp"/*
+    find "$script_dir/tmp" -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} +
 fi
 
 # Check scripts dir
