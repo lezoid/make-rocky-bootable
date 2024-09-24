@@ -1,0 +1,6 @@
+%if exists(scriptdir):
+    mkdir -p ${root}/opt/scripts
+    install ${scriptdir}/* ${root}/opt/scripts/
+%else:
+    runcmd echo "Script directory does not exist: ${scriptdir}"
+%endif
