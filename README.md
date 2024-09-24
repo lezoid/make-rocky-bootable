@@ -1,15 +1,22 @@
 # make-rocky-bootable
-Create a custom Bootable ISO for Rocky Linux
+このスクリプトはRocky Linuxをベースとし、任意のパッケージや独自のファイルを組み込んだブータブルisoの作成を容易に作成するためのスクリプトです。
 
-## Requirement 
-This script is intended to run on Rocky Linux9.
-Hosts with KVM functionality enabled  (Use qemu-kvm)
+## 使い方
+./build.sh
 
-## Requirement Packages
+## 動作に必要な要件やパッケージ
+KVMが有効なマシンで実行されていること(qemu-kvmを用いるため)
+Rocky Linux 9以上で実行されている環境であること (RHELやFedoraでも動きそうだけど確認していません。)
+また以下のパッケージが導入されている必要があります。
 qemu-kvm  
-lorax  
+lorax 
 
-## Command Usage
+## 独自のファイルやパッケージを埋め込む方法
 
+### main.ksファイルを修正する(標準レポジトリのパッケージ追加/言語などの設定 など)
+標準レポジトリにあるパッケージなどを追加したい場合は、main.ksを修正することで組み込むことができます。
 
-## How to incorporate your own tools
+### フォルダや起動時に自動的に実行するスクリプトの組み込み
+make-rocky-bootableでは/scriptsのディレクトリを、livecd内の/opt/scriptsに配置するように設定されています。
+本スクリプトでは起動時に/opt/scripts/startup.shを実行する設定を標準で設定しています。
+起動後に行いたい処理などを組み込みたい場合は、startup.shを活用することにより自前のプログラムなどを自動的に実行させることも可能です。
