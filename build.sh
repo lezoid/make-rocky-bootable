@@ -1,13 +1,47 @@
 #!/bin/bash
 
-# 0. Determine the directory of the script itself
+# Function to display help message
+function show_help {
+    echo "Usage: $0 [--boot-mode MODE] [--help]"
+    echo ""
+    echo "Options:"
+    echo "  --boot-mode MODE     Specify the boot mode: 'uefi', 'mbr', 'uefi_gui', or 'mbr_gui'."
+    echo "                       - uefi: Uses kickstart/uefi_main.ks (default)"
+    echo "                       - mbr: Uses kickstart/mbr_main.ks"
+    echo "                       - uefi_gui: Uses kickstart/uefi_gui.ks"
+    echo "                       - mbr_gui: Uses kickstart/mbr_gui.ks"
+    echo "  --help               Display this help message."
+    exit 0
+}
+
+# Determine the directory of the script itself
 script_dir=$(dirname "$(realpath "$0")")
 
-# 1. Set default ISO URL and ISO path, can be overridden by environment variables or script arguments
+# Set default ISO URL and ISO path, can be overridden by environment variables or script arguments
 iso=${iso:-"https://ftp.iij.ad.jp/pub/linux/rocky/\$version/isos/x86_64/Rocky-x86_64-dvd.iso"}
 iso_path=${iso_path:-"$script_dir/isos/Rocky-x86_64-dvd.iso"}
 
-# 2. Check if the script is running on a compatible platform (el8 or later)
+# Default boot mode
+bootmode="uefi"
+
+# Parse script arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --boot-mode)
+            bootmode="$2"
+            shift 2
+            ;;
+        --help|-h)
+            show_help
+            ;;
+        *)
+            echo "Unknown option: $1"
+            show_help
+            ;;
+    esac
+done
+
+# Check if the script is running on a compatible platform (el8 or later)
 release_info=$(grep -E '^VERSION_ID|^PLATFORM_ID' /etc/os-release)
 
 # Extract platform and version information
@@ -26,21 +60,21 @@ echo "Running on a compatible platform: $platform (Version: $version)"
 version=$(echo $release_info | grep -oP '\d+' | head -1)
 release=$(echo $release_info | grep -oP '\d+\.\d+')
 
-# 3. Check if qemu-kvm kernel module is loaded
+# Check if qemu-kvm kernel module is loaded
 if ! lsmod | grep -q kvm; then
     echo "Error: KVM kernel module is not loaded. Please load the module and try again."
     exit 1
 fi
 
-# 4. Check if required packages are installed
-for pkg in qemu-kvm lorax; do
+# Check if required packages are installed
+for pkg in qemu-kvm lorax lorax-lmc-virt; do
     if ! rpm -q $pkg &>/dev/null; then
         echo "Error: The package $pkg is not installed. Please install it and rerun the script."
         exit 1
     fi
 done
 
-# 5. Check if the ISO image exists, and if not, download it
+# Check if the ISO image exists, and if not, download it
 if [ ! -f "$iso_path" ]; then
     echo "ISO file does not exist. Downloading..."
 
@@ -75,28 +109,41 @@ if [ ! -d "$script_dir/scripts" ]; then
     exit 1
 fi
 
-# 6. Set default bootmode to mbr if not specified
-bootmode=${bootmode:-"mbr"}
+# Set kickstart file and additional options based on bootmode
 echo "Selected ISO boot mode: $bootmode"
-
-# 7. Set kickstart file and additional options based on bootmode
-if [ "$bootmode" == "uefi" ]; then
-    ks_file="$script_dir/kickstart/uefi_main.ks"
-    extra_opts="--virt-uefi"
-elif [ "$bootmode" == "mbr" ]; then
-    ks_file="$script_dir/kickstart/mbr_main.ks"
-    extra_opts=""
-else
-    echo "Error: Invalid boot mode specified. Use 'uefi' or 'mbr'."
-    exit 1
-fi
+case "$bootmode" in
+    uefi)
+        ks_file="$script_dir/kickstart/uefi_main.ks"
+        extra_opts="--virt-uefi"
+        iso_name="liveboot-uefi.iso"
+        ;;
+    mbr)
+        ks_file="$script_dir/kickstart/mbr_main.ks"
+        extra_opts=""
+        iso_name="liveboot-mbr.iso"
+        ;;
+    uefi_gui)
+        ks_file="$script_dir/kickstart/uefi_gui.ks"
+        extra_opts="--virt-uefi"
+        iso_name="liveboot-uefi_gui.iso"
+        ;;
+    mbr_gui)
+        ks_file="$script_dir/kickstart/mbr_gui.ks"
+        extra_opts=""
+        iso_name="liveboot-mbr_gui.iso"
+        ;;
+    *)
+        echo "Error: Invalid boot mode specified. Use 'uefi', 'mbr', 'uefi_gui', or 'mbr_gui'."
+        exit 1
+        ;;
+esac
 
 # Run livemedia-creator (Required KVM)
 sudo livemedia-creator \
   --make-iso \
   --ks="$ks_file" \
   --iso="$iso_path" \
-  --iso-name="liveboot.iso" \
+  --iso-name="$iso_name" \
   --iso-only \
   --resultdir="$script_dir/build-iso" \
   --logfile="$script_dir/logs/livemedia-creator.log" \
@@ -115,5 +162,5 @@ else
     echo "livemedia-creator completed successfully."
 fi
 
-echo "Create Bootable ISO completed. Only liveboot.iso remains in the build-iso directory."
+echo "Create Bootable ISO completed. Only $iso_name remains in the build-iso directory."
 
