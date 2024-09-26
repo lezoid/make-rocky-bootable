@@ -1,7 +1,7 @@
 # make-rocky-bootable
 
 make-rocky-bootableは簡単にカスタムしたブータブルISOの作成を行うことができます :)
-![GUI Mode Screenshot]([README/res/screenshot0.png](https://github.com/lezoid/make-rocky-bootable/blob/main/README/res/screenshot0.png?raw=true))
+![GUI Mode Screenshot](./res/screenshot0.png)
 
 ## Languages
 - [英語 (English)](README/README_EN.md)
