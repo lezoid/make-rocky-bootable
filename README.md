@@ -1,6 +1,7 @@
 # make-rocky-bootable
 
 make-rocky-bootable helps you create a custom bootable ISO easily :)
+![GUI Mode Screenshot](README/res/screenshot0.png)
 
 ## Languages
 - [英語 (English)](README/README_EN.md)
