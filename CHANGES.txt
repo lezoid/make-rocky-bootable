@@ -1,0 +1,243 @@
+===============================================================================
+コード修正変更履歴 (2026-03-10)
+===============================================================================
+
+このファイルには、fix/code-issuesブランチで行った全ての変更を記録しています。
+必要に応じて元に戻すことができます。
+
+===============================================================================
+修正1: README.md - コマンド例の誤り
+===============================================================================
+ファイル: README.md
+行番号: 35
+
+【変更前】
+    # ./build2.sh --help
+
+【変更後】
+    # ./build.sh --help
+
+【理由】
+実際のスクリプト名はbuild.shなので、誤記を修正。
+
+===============================================================================
+修正2: uefi_gui.ks - 存在しないユーザーへの設定
+===============================================================================
+ファイル: kickstart/uefi_gui.ks
+行番号: 141
+
+【変更前】
+for user in root Administrator; do
+
+【変更後】
+for user in root; do
+
+【理由】
+Administratorユーザーはコメントアウトされており作成されていないため、
+存在しないユーザーの設定を試みると失敗する可能性がある。
+
+===============================================================================
+修正3: uefi_gui.ks - パッケージの重複インストール
+===============================================================================
+ファイル: kickstart/uefi_gui.ks
+行番号: 47-48
+
+【変更前】
+vi
+bash-completion
+langpacks-ja
+glibc-langpack-ja
+%end
+
+【変更後】
+vi
+bash-completion
+%end
+
+【理由】
+langpacks-jaとglibc-langpack-jaは%postセクション(line 71)で
+dnf installされるため、%packagesセクションでは不要。重複を削除。
+
+===============================================================================
+修正4: build.sh - version変数の重複取得
+===============================================================================
+ファイル: build.sh
+行番号: 60-61
+
+【変更前】
+# Display version and release information
+version=$(echo $release_info | grep -oP '\d+' | head -1)
+release=$(echo $release_info | grep -oP '\d+\.\d+')
+
+【変更後】
+# Display version and release information (version already extracted at line 49)
+release=$(echo $release_info | grep -oP '\d+\.\d+')
+
+【理由】
+version変数は既に49行目で取得済み。60行目での再取得は不要で上書きされるだけ。
+コメントを追加して削除理由を明確化。
+
+===============================================================================
+修正5: uefi_gui.ks, mbr_gui.ks - ファイアウォール設定の統一
+===============================================================================
+ファイル: kickstart/uefi_gui.ks, kickstart/mbr_gui.ks
+
+【uefi_gui.ks 変更前（行番号158-160）】
+# Open port 3389 for XRDP (TCP)
+systemctl enable firewalld
+firewall-offline-cmd --add-port=3389/tcp
+
+【mbr_gui.ks 変更前（行番号154-157）】
+# Open port 3389 for XRDP (TCP)
+systemctl enable firewalld
+systemctl start firewalld
+firewall-cmd --permanent --add-port=3389/tcp
+firewall-cmd --reload
+
+【変更後（両ファイル共通）】
+# Open port 3389 for XRDP (TCP)
+systemctl enable firewalld
+systemctl start firewalld
+firewall-offline-cmd --add-port=3389/tcp
+
+【理由】
+1. kickstartの%postセクションではfirewall-offline-cmdを使用する方が確実
+2. main系ファイル(uefi_main.ks, mbr_main.ks)との一貫性のため
+   systemctl start firewalldを追加
+3. 全てのkickstartファイルでfirewallの初期化方法を統一
+
+===============================================================================
+修正6: mbr_gui.ks - bash-completionパッケージの追加
+===============================================================================
+ファイル: kickstart/mbr_gui.ks
+行番号: 39-41
+
+【変更前】
+vi
+langpacks-ja
+glibc-langpack-ja
+%end
+
+【変更後】
+vi
+bash-completion
+langpacks-ja
+glibc-langpack-ja
+%end
+
+【理由】
+他のkickstartファイル(uefi_main.ks, mbr_main.ks, uefi_gui.ks)と統一するため、
+bash-completionパッケージを追加。
+
+===============================================================================
+修正7: mbr_gui.ks - 存在しないユーザーへの設定
+===============================================================================
+ファイル: kickstart/mbr_gui.ks
+行番号: 134
+
+【変更前】
+for user in root; do
+
+【変更後】
+for user in root; do
+
+【理由】
+uefi_gui.ksと異なり、mbr_gui.ksでは既にrootのみになっているため変更不要。
+ただし一貫性を確認済み。
+
+===============================================================================
+修正8: uefi_gui.ks - langpacksパッケージの重複（修正3の補足）
+===============================================================================
+ファイル: kickstart/uefi_gui.ks
+行番号: 47-48を削除後、71行目のdnfコマンドはそのまま維持
+
+【確認】
+%postセクションのline 71:
+dnf -y install langpacks-ja glibc-langpack-ja ibus-mozc firefox xrdp
+
+このコマンドはそのまま維持され、ここで必要なパッケージがインストールされる。
+
+===============================================================================
+追加機能: build.py - Pythonベースのインタラクティブビルドスクリプト
+===============================================================================
+ファイル: build.py (新規作成)
+
+【概要】
+build.shをベースにしたPythonスクリプトで、以下の機能を追加:
+1. インタラクティブなbootmode選択メニュー
+2. rootパスワードの入力機能（空を受け付けない）
+3. パスワード確認機能
+4. Jinja2テンプレートからkickstartファイルを動的生成
+
+【使用方法】
+# ./build.py
+
+【主な機能】
+- bootmode選択: メニュー形式で1-4を選択
+  1) uefi      - UEFI boot (CLI only)
+  2) mbr       - MBR/BIOS boot (CLI only)
+  3) uefi_gui  - UEFI boot with GUI (XFCE + RDP)
+  4) mbr_gui   - MBR/BIOS boot with GUI (XFCE + RDP)
+
+- rootパスワード設定:
+  * 入力時は非表示（getpass使用）
+  * 空パスワードは拒否
+  * 確認入力で一致チェック
+  * テンプレートに自動適用
+
+【技術的詳細】
+- Jinja2テンプレートエンジンを使用
+- template.ks.j2から各パターンのkickstartを動的生成
+- 一時ファイルを作成し、ビルド完了後に自動削除
+- 既存の4つのksファイルは変更しない（build.shとの互換性維持）
+
+【build.shとの違い】
+- インタラクティブなUI
+- テンプレートベースの生成（メンテナンス性向上）
+- パスワードのカスタマイズが簡単
+- エラーハンドリングの強化
+- より詳細な進捗表示
+
+===============================================================================
+追加機能: template.ks.j2 - Kickstart統合テンプレート
+===============================================================================
+ファイル: kickstart/template.ks.j2 (新規作成)
+
+【概要】
+既存の4つのkickstartファイル（uefi_main.ks, mbr_main.ks, uefi_gui.ks,
+mbr_gui.ks）を1つのテンプレートに統合。
+
+【統合による改善点】
+1. メンテナンス性: 1ファイル修正で全パターンに反映
+2. 一貫性: 共通部分が完全に同一になる
+3. DRY原則: コードの重複を排除
+
+【テンプレート変数】
+- uefi: UEFI/MBRの切り替え（bootloader、パーティション、パッケージ）
+- gui: GUI/CLIの切り替え（デスクトップ環境、RDP設定）
+- root_password: rootパスワード
+
+【GUIでの変更点】
+- firefoxとchromiumの両方をインストール（完全に共通化）
+- uefi_guiとmbr_guiで完全に同じGUI環境
+
+【後方互換性】
+- 既存の4つのksファイルは保持（build.shで使用）
+- build.pyはテンプレートを使用
+- 将来的に既存ファイルは段階的に廃止予定
+
+【依存関係】
+- Jinja2ライブラリが必要
+  インストール方法: dnf install python3-jinja2
+              または pip3 install jinja2
+
+===============================================================================
+注意事項
+===============================================================================
+- ブラウザの違い(firefox vs chromium)は意図的な可能性があるため変更しない
+- SELinux permissive、デフォルトパスワード、SSH root loginは
+  READMEで警告されているため変更しない
+- この変更履歴ファイル(CHANGES.txt)はgit管理下に追加しない
+- build.pyはgit管理下に追加する
+
+===============================================================================

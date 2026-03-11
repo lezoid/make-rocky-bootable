@@ -1,7 +1,10 @@
-#version=RHEL9 UEFI with GUI
+#version=RHEL9 {{ 'UEFI' if uefi else 'MBR' }}{% if gui %} with GUI{% endif %}
 # System language
+{% if gui %}
 lang ja_JP.UTF-8
-#lang en_US.UTF-8
+{% else %}
+lang en_US.UTF-8
+{% endif %}
 
 # Keyboard layout
 keyboard jp
@@ -10,7 +13,7 @@ keyboard jp
 timezone Asia/Tokyo --utc
 
 # root user plain text password settings
-rootpw --plaintext password
+rootpw --plaintext {{ root_password }}
 
 # Network settings
 network --bootproto=dhcp --device=link --activate
@@ -18,14 +21,22 @@ network --bootproto=dhcp --device=link --activate
 # Disable SELinux
 selinux --permissive
 
+{% if version <= 9 %}
 # Authentication information
 auth --useshadow --passalgo=sha512
+{% endif %}
 
-# Disk partitioning(UEFI)
+# Disk partitioning
+{% if uefi %}
 bootloader --location=none
 clearpart --all --initlabel
 reqpart
 part / --size=6656
+{% else %}
+clearpart --all --initlabel
+part / --fstype="xfs" --grow --size=8192
+bootloader --location=mbr
+{% endif %}
 
 # Package selection
 %packages
@@ -35,19 +46,28 @@ memtest86+
 syslinux
 *-logos
 firewalld
+{% if uefi %}
 # Add UEFI Support
 shim
 grub2
 grub2-efi
 grub2-efi-*-cdboot
 efibootmgr
+{% endif %}
 ## ---------Add Packages-----------
 vi
 bash-completion
+{% if gui %}
+langpacks-ja
+glibc-langpack-ja
+{% endif %}
+## -------Remove Packages----------
+-iwl*-firmware
 %end
 
 # Post script: Configure services and system settings inside the guest
 %post --log=/root/ks-post.log
+{% if gui %}
 
 ##############################################################
 ###                       Desktop Config                   ###
@@ -61,24 +81,39 @@ bash-completion
 #Encrypt Version
 #echo "Administrator:PASSWORD_HASH" | chpasswd --encrypted
 
+{% if version >= 10 %}
+##############################################################
+###                  Rocky 10: KDE Plasma                  ###
+##############################################################
+# Enable CRB repository
+dnf config-manager --set-enabled crb
+dnf clean all
+
+# Install KDE Plasma Workspaces
+dnf -y groupinstall "KDE Plasma Workspaces"
+
+# Install additional packages
+dnf -y install firefox
+
+# Enable SDDM display manager
+systemctl enable sddm
+
+# Set graphical target as default
+systemctl set-default graphical
+
+{% else %}
+##############################################################
+###              Rocky 7/8/9: XFCE + XRDP                 ###
+##############################################################
 ## Add GUI Packages
 # Enable EPEL repository
 dnf -y install epel-release
 
 # Install additional packages from EPEL
-dnf -y install langpacks-ja glibc-langpack-ja ibus-mozc firefox xrdp
+dnf -y install langpacks-ja glibc-langpack-ja ibus-mozc firefox chromium xrdp
 
 # Install XFCE desktop environment
 dnf -y groupinstall "xfce"
-
-
-## create xinit files for skel, root
-for path in /etc/skel /root ; do
-    echo "exec /usr/bin/xfce4-session" > $path/.Xclients
-    echo "exec /usr/bin/xfce4-session" > $path/.xinitrc
-    chmod +x $path/.Xclients
-    chmod +x $path/.xinitrc
-done
 
 ## gdm autologin enable
 #sed -i '1i auth sufficient pam_succeed_if.so user ingroup nopasswdlogin' /etc/pam.d/gdm-password
@@ -92,8 +127,8 @@ done
 #[daemon]
 #AutomaticLogin=Administrator
 #AutomaticLoginEnable=True
-## Uncomment the line below to force the login screen to use Xorg
-##WaylandEnable=false
+# Uncomment the line below to force the login screen to use Xorg
+#WaylandEnable=false
 #
 #[security]
 #
@@ -102,15 +137,23 @@ done
 #[chooser]
 #
 #[debug]
-## Uncomment the line below to turn on debugging
-##Enable=true
+# Uncomment the line below to turn on debugging
+#Enable=true
 #EOL'
+
+## create xinit files for skel, root
+for path in /etc/skel /root; do
+    echo "exec /usr/bin/xfce4-session" > $path/.Xclients
+    echo "exec /usr/bin/xfce4-session" > $path/.xinitrc
+    chmod +x $path/.Xclients
+    chmod +x $path/.xinitrc
+done
 
 ## gdm default session for xfce with correct Icon paths
 for account in root; do
     icon_path="/home/$account/.face"
     [[ "$account" == "root" ]] && icon_path="/root/.face"
-    
+
     sudo bash -c "cat <<EOL > /etc/accountsservice/user-templates/$account
 # This file contains defaults for new users. To edit, first
 # copy it to /etc/accountsservice/user-templates and make changes
@@ -128,7 +171,7 @@ EOL"
 done
 
 ## gdm session settings for root and Users
-for useraccount in root ; do
+for useraccount in root; do
     sudo bash -c "cat <<EOL > /var/lib/AccountsService/users/$useraccount
 [User]
 XSession=xfce
@@ -139,7 +182,7 @@ done
 for user in root; do
     bashrc_path="/home/$user/.bashrc"
     [[ "$user" == "root" ]] && bashrc_path="/root/.bashrc"
-    
+
     cat <<EOL >> $bashrc_path
 
 # IBus settings for input method
@@ -159,15 +202,23 @@ systemctl enable xrdp --now
 systemctl enable firewalld
 systemctl start firewalld
 firewall-offline-cmd --add-port=3389/tcp
+{% endif %}
 
 ##############################################################
 ###                      End Desktop Config                ###
 ##############################################################
 
+{% endif %}
 # Allow SSH login as root
 sed -i 's/#PermitRootLogin yes/PermitRootLogin yes/' /etc/ssh/sshd_config
 sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 systemctl restart sshd
+{% if not gui %}
+
+# Enable firewalld
+systemctl enable firewalld
+systemctl start firewalld
+{% endif %}
 
 # Create a systemd service for running the startup script once at boot
 cat << EOF > /etc/systemd/system/firstboot-startup.service

@@ -32,7 +32,7 @@
     # git clone https://github.com/lezoid/make-rocky-bootable.git
     # cd make-rocky-bootable
     # ./build.sh --help
-    Usage: ./build2.sh [--boot-mode MODE] [--help]
+    Usage: ./build.sh [--boot-mode MODE] [--help]
     
     Options:
      --boot-mode MODE     Specify the boot mode: 'uefi', 'mbr', 'uefi_gui', or 'mbr_gui'.

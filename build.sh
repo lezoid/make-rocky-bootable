@@ -56,8 +56,7 @@ fi
 
 echo "Running on a compatible platform: $platform (Version: $version)"
 
-# Display version and release information
-version=$(echo $release_info | grep -oP '\d+' | head -1)
+# Display version and release information (version already extracted at line 49)
 release=$(echo $release_info | grep -oP '\d+\.\d+')
 
 # Check if qemu-kvm kernel module is loaded
