@@ -31,7 +31,7 @@ auth --useshadow --passalgo=sha512
 bootloader --location=none
 clearpart --all --initlabel
 reqpart
-part / --size=6656
+part / --size=6656 --grow
 {% else %}
 clearpart --all --initlabel
 part / --fstype="xfs" --grow --size=8192
@@ -67,6 +67,18 @@ glibc-langpack-ja
 
 # Post script: Configure services and system settings inside the guest
 %post --log=/root/ks-post.log
+
+# Log disk usage at start of post script
+df -h
+
+# Configure dnf: fastestmirror + timeout settings
+cat << 'EOF' >> /etc/dnf/dnf.conf
+fastestmirror=True
+minrate=5000
+timeout=30
+retries=3
+EOF
+
 {% if gui %}
 
 ##############################################################
@@ -85,6 +97,9 @@ glibc-langpack-ja
 ##############################################################
 ###                  Rocky 10: KDE Plasma                  ###
 ##############################################################
+# Enable EPEL repository
+dnf -y install epel-release
+
 # Enable CRB repository
 dnf config-manager --set-enabled crb
 dnf clean all
@@ -209,9 +224,23 @@ firewall-offline-cmd --add-port=3389/tcp
 ##############################################################
 
 {% endif %}
+{% if extra_user %}
+# Create general user
+useradd {{ extra_user.name }}
+echo "{{ extra_user.name }}:{{ extra_user.password }}" | chpasswd
+{% if extra_user.sudoer %}
+usermod -aG wheel {{ extra_user.name }}
+{% endif %}
+{% endif %}
+
+{% if extra_user and extra_user.disable_root_ssh %}
+# Disable root SSH login
+sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+{% else %}
 # Allow SSH login as root
 sed -i 's/#PermitRootLogin yes/PermitRootLogin yes/' /etc/ssh/sshd_config
 sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+{% endif %}
 systemctl restart sshd
 {% if not gui %}
 
@@ -228,8 +257,10 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash /run/initramfs/live/scripts/startup.sh
+ExecStart=/bin/bash -x /run/initramfs/live/scripts/startup.sh
 ExecStartPost=/bin/rm -f /etc/systemd/system/firstboot-startup.service
+StandardOutput=append:/var/log/firstboot-startup.log
+StandardError=append:/var/log/firstboot-startup.log
 
 [Install]
 WantedBy=multi-user.target
@@ -244,7 +275,12 @@ rm -f /var/lib/rpm/__db*
 rm -f /var/lib/systemd/random-seed
 rm -f /etc/machine-id
 touch /etc/machine-id
+# Log disk usage at end of post script
+df -h
+
+{% if not debug %}
 rm -f /root/anaconda-ks.cfg /root/ks-post.log /root/original-ks.cfg
+{% endif %}
 
 %end
 shutdown

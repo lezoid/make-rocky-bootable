@@ -5,6 +5,7 @@ Based on build.sh with interactive menu and password input
 Uses Jinja2 templating for kickstart file generation
 """
 
+import argparse
 import hashlib
 import os
 import sys
@@ -41,6 +42,8 @@ class ISOBuilder:
         self.version = None
         self.release = None
         self.target_version = None
+        self.extra_user = None  # {'name': str, 'password': str, 'sudoer': bool}
+        self.debug = False
 
     def display_banner(self):
         """Display welcome banner"""
@@ -97,7 +100,7 @@ class ISOBuilder:
         """Check if required packages are installed"""
         print("[3/8] Checking required packages...")
 
-        required_packages = ['qemu-kvm', 'lorax', 'lorax-lmc-virt', 'wget']
+        required_packages = ['qemu-kvm', 'lorax', 'lorax-lmc-virt', 'wget', 'isomd5sum']
         missing_packages = []
 
         for pkg in required_packages:
@@ -228,10 +231,11 @@ class ISOBuilder:
         """Interactive bootmode selection"""
         print("[6/8] Select boot mode:")
         print()
+        gui_desc = "KDE Plasma" if self.target_version == '10' else "XFCE + RDP"
         print("  1) uefi      - UEFI boot (CLI only)")
         print("  2) mbr       - MBR/BIOS boot (CLI only)")
-        print("  3) uefi_gui  - UEFI boot with GUI (XFCE + RDP)")
-        print("  4) mbr_gui   - MBR/BIOS boot with GUI (XFCE + RDP)")
+        print(f"  3) uefi_gui  - UEFI boot with GUI ({gui_desc})")
+        print(f"  4) mbr_gui   - MBR/BIOS boot with GUI ({gui_desc})")
         print()
 
         bootmode_map = {
@@ -248,6 +252,13 @@ class ISOBuilder:
                 self.bootmode = bootmode_map[choice]
                 print(f"✓ Selected boot mode: {self.bootmode}")
                 print()
+                if self.target_version == '10' and self.bootmode in ['uefi_gui', 'mbr_gui']:
+                    print("=" * 70)
+                    print("  WARNING: Rocky 10 GUI is experimental")
+                    print("  KDE Plasma has large dependencies and the resulting ISO")
+                    print("  will be significantly larger than CLI builds.")
+                    print("=" * 70)
+                    print()
                 break
             else:
                 print("Invalid choice. Please enter 1, 2, 3, or 4.")
@@ -279,6 +290,45 @@ class ISOBuilder:
             print("✓ Root password set successfully")
             print()
             break
+
+    def input_extra_user(self):
+        """Optionally create a general user"""
+        print("Create a general user? (y/N): ", end='', flush=True)
+        if input().strip().lower() != 'y':
+            print()
+            return
+
+        while True:
+            username = input("Username: ").strip()
+            if username:
+                break
+            print("Username cannot be empty.")
+
+        while True:
+            password1 = getpass.getpass("User password: ")
+            if not password1:
+                print("Password cannot be empty. Please try again.")
+                continue
+            password2 = getpass.getpass("Confirm password: ")
+            if password1 != password2:
+                print("Passwords do not match. Please try again.")
+                continue
+            break
+
+        sudoer = input("Add to sudoers? (y/N): ").strip().lower() == 'y'
+
+        disable_root_ssh = False
+        if sudoer:
+            disable_root_ssh = input("Disable root SSH login? (y/N): ").strip().lower() == 'y'
+
+        self.extra_user = {
+            'name': username,
+            'password': password1,
+            'sudoer': sudoer,
+            'disable_root_ssh': disable_root_ssh,
+        }
+        print(f"✓ User '{username}' will be created{' (sudoer)' if sudoer else ''}{' (root SSH disabled)' if disable_root_ssh else ''}")
+        print()
 
     def cleanup_directories(self):
         """Cleanup build-iso and tmp directories"""
@@ -326,7 +376,9 @@ class ISOBuilder:
             uefi=is_uefi,
             gui=is_gui,
             root_password=self.root_password,
-            version=int(self.target_version)
+            version=int(self.target_version),
+            extra_user=self.extra_user,
+            debug=self.debug
         )
 
         # Create temporary file
@@ -337,6 +389,15 @@ class ISOBuilder:
 
         with os.fdopen(fd, 'w') as f:
             f.write(kickstart_content)
+
+        if self.debug:
+            print("=" * 70)
+            print("  [DEBUG] Generated kickstart content:")
+            print("=" * 70)
+            for i, line in enumerate(kickstart_content.splitlines(), 1):
+                print(f"{i:4}: {line}")
+            print("=" * 70)
+            print()
 
         return temp_path
 
@@ -403,16 +464,13 @@ class ISOBuilder:
                 '--project=Rocky Linux',
                 f'--releasever={self.target_version}',
                 f'--tmp={self.script_dir}/tmp',
-                '--image-size=8192',
+                '--image-size=8704',
                 f'--lorax-templates={self.script_dir}/tmpl'
             ]
 
             # Add extra options
             cmd.extend(config['extra_opts'])
 
-            # Rocky 10: add dummy USB controller to suppress brltty usbfs warnings
-            if self.target_version == '10':
-                cmd.extend(['--qemu-arg', '-device qemu-xhci,id=xhci'])
 
             print("Running livemedia-creator (this may take a while)...")
             print(f"Log file: {self.script_dir}/logs/livemedia-creator.log")
@@ -426,6 +484,15 @@ class ISOBuilder:
                 print("Error: livemedia-creator failed.")
                 print(f"Check the log for details: {self.script_dir}/logs/livemedia-creator.log")
                 sys.exit(1)
+
+            # Embed ISO checksum for "Test this media" boot option
+            output_iso = self.script_dir / 'build-iso' / config['iso_name']
+            print("Embedding ISO checksum (implantisomd5)...")
+            checksum_result = subprocess.run(
+                ['sudo', 'implantisomd5', '--force', str(output_iso)]
+            )
+            if checksum_result.returncode != 0:
+                print("Warning: implantisomd5 failed. 'Test this media' may not work correctly.")
 
             print()
             print("=" * 70)
@@ -458,6 +525,7 @@ class ISOBuilder:
             self.download_iso_if_needed()
             self.select_bootmode()
             self.input_root_password()
+            self.input_extra_user()
             self.cleanup_directories()
             self.build_iso()
 
@@ -473,6 +541,11 @@ class ISOBuilder:
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Rocky Linux Bootable ISO Builder')
+    parser.add_argument('--debug', action='store_true',
+                        help='Debug mode: preserve logs inside the ISO')
+    args = parser.parse_args()
+
     if os.geteuid() == 0:
         print("Warning: This script should not be run as root initially.")
         print("It will request sudo privileges when needed (for livemedia-creator).")
@@ -482,6 +555,7 @@ def main():
             sys.exit(0)
 
     builder = ISOBuilder()
+    builder.debug = args.debug
     builder.run()
 
 
