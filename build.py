@@ -100,7 +100,7 @@ class ISOBuilder:
         """Check if required packages are installed"""
         print("[3/8] Checking required packages...")
 
-        required_packages = ['qemu-kvm', 'lorax', 'lorax-lmc-virt', 'wget', 'isomd5sum']
+        required_packages = ['qemu-kvm', 'lorax', 'lorax-lmc-virt', 'wget', 'isomd5sum', 'syslinux-nonlinux']
         missing_packages = []
 
         for pkg in required_packages:
@@ -344,14 +344,15 @@ class ISOBuilder:
                 sys.exit(1)
 
         # Clean tmp directory contents (keep .gitkeep)
+        # Use sudo because previous runs may have left root-owned files
         tmp_dir = self.script_dir / "tmp"
         if tmp_dir.exists():
             for item in tmp_dir.iterdir():
                 if item.name != '.gitkeep':
-                    if item.is_dir():
-                        shutil.rmtree(item)
-                    else:
-                        item.unlink()
+                    result = subprocess.run(['sudo', 'rm', '-rf', str(item)])
+                    if result.returncode != 0:
+                        print(f"Error: Failed to remove {item}")
+                        sys.exit(1)
 
         print("✓ Directories cleaned")
 
