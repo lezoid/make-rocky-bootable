@@ -1,0 +1,14 @@
+[meta]
+label = Base Packages
+description = 基本パッケージを追加する
+check = false
+order = 10
+
+[packages]
+dracut-live
+memtest86+
+syslinux
+*-logos
+firewalld
+vi
+bash-completion

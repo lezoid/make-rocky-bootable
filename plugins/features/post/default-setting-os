@@ -1,0 +1,23 @@
+[meta]
+label = Default OS Settings
+description = SSH設定、firewalld などの基本OS設定
+check = false
+order = 15
+
+[post]
+# Configure dnf: fastestmirror + timeout settings
+cat << 'EOF' >> /etc/dnf/dnf.conf
+fastestmirror=True
+minrate=5000
+timeout=30
+retries=3
+EOF
+
+# Allow SSH login as root
+sed -i 's/#PermitRootLogin yes/PermitRootLogin yes/' /etc/ssh/sshd_config
+sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+systemctl restart sshd
+
+# Enable firewalld
+systemctl enable firewalld
+systemctl start firewalld

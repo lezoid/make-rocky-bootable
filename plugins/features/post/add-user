@@ -1,0 +1,52 @@
+[meta]
+label = Create General User
+description = 一般ユーザーを作成する
+check = true
+order = 90
+
+[prompts]
+name.type = text
+name.label = Username
+name.default = user
+
+password.type = password
+password.label = User Password
+password.default = user
+
+sudoer.type = boolean
+sudoer.label = Add to wheel (sudoers)?
+sudoer.default = true
+
+disable_root_ssh.type = boolean
+disable_root_ssh.label = Disable root SSH login?
+disable_root_ssh.default = false
+
+enable_firstboot_user_startup.type = boolean
+enable_firstboot_user_startup.label = Enable first-login user startup service?
+enable_firstboot_user_startup.default = false
+
+[post]
+${if_enable_firstboot_user_startup}install -d -m 0755 /etc/skel/.config/systemd/user/default.target.wants
+cat << 'EOF' > /etc/skel/.config/systemd/user/firstboot-user-startup.service
+[Unit]
+Description=Run startup-user.sh after first user login
+After=default.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -x /run/initramfs/live/scripts/startup-user.sh
+ExecStartPost=/bin/sh -c 'rm -f %h/.config/systemd/user/default.target.wants/firstboot-user-startup.service %h/.config/systemd/user/firstboot-user-startup.service'
+StandardOutput=append:%h/firstboot-user-startup.log
+StandardError=append:%h/firstboot-user-startup.log
+
+[Install]
+WantedBy=default.target
+EOF
+ln -sf ../firstboot-user-startup.service /etc/skel/.config/systemd/user/default.target.wants/firstboot-user-startup.service${endif_enable_firstboot_user_startup}
+
+# Create general user
+useradd ${name}
+echo "${name}:${password}" | chpasswd
+${if_sudoer}usermod -aG wheel ${name}${endif_sudoer}
+${if_disable_root_ssh}sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+systemctl restart sshd${endif_disable_root_ssh}

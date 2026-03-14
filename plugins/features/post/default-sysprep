@@ -1,0 +1,22 @@
+[meta]
+label = System Cleanup (sysprep)
+description = machine-id・RPM DB・random-seedなどのクリーンアップを行う
+check = true
+default = true
+order = 200
+
+[post]
+# Cleanup operations
+rm -f /core*
+rm -f /var/lib/rpm/__db*
+rm -f /var/lib/systemd/random-seed
+rm -f /etc/machine-id
+rm -f /root/anaconda-ks.cfg
+rm -f /root/ks-post.log
+rm -f /root/original-ks.cfg
+rm -f /var/log/wtmp /var/log/btmp /var/log/lastlog
+find /var/log -type f -exec truncate -s 0 {} \;
+rm -rf /tmp/* /var/tmp/*
+rm -f /root/.bash_history /home/*/.bash_history
+rm -rf /var/cache/dnf/*
+touch /etc/machine-id

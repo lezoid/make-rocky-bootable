@@ -1,0 +1,239 @@
+[meta]
+label = KDE Plasma GUI Support (krdp)
+description = KDE Plasma デスクトップと krdp RDPサーバーをインストールする
+check = true
+order = 50
+image_size = 12288
+supported_os = rocky10
+requires = add-user
+
+[prompts]
+enable_rdp.type = boolean
+enable_rdp.label = Enable RDP server? If enabled, KDE auto-login will also be enabled.
+enable_rdp.default = true
+
+install_mozc.type = boolean
+install_mozc.label = Install Fcitx5 + Mozc for Japanese input?
+install_mozc.default = true
+install_mozc.when_plugin = language-japanese-support
+
+[post]
+# Enable EPEL and CRB repositories
+dnf -y install epel-release
+dnf config-manager --set-enabled crb
+dnf clean all
+
+# Install KDE Plasma Workspaces
+dnf -y groupinstall "KDE Plasma Workspaces"
+dnf -y install firefox
+
+# Enable SDDM display manager
+systemctl enable sddm
+systemctl set-default graphical
+
+# Enable firewalld
+systemctl enable firewalld
+
+# /etc/skel/ directory structure
+mkdir -p /etc/skel/.config/kdedefaults
+mkdir -p /etc/skel/Desktop
+${if_language-japanese-support}mkdir -p '/etc/skel/デスクトップ'${endif_language-japanese-support}
+
+# Hide KDE welcome center
+cat > /etc/skel/.config/plasma-welcomerc << 'PLASMAWELCOME_EOF'
+[General]
+LastSeenVersion=999.999.999
+PLASMAWELCOME_EOF
+
+# Breeze Dark theme
+cat > /etc/skel/.config/kdedefaults/kdeglobals << 'KDEDEFAULTSGLOBAL_EOF'
+[General]
+ColorScheme=BreezeDark
+
+[Icons]
+Theme=breeze-dark
+
+[KDE]
+widgetStyle=Breeze
+KDEDEFAULTSGLOBAL_EOF
+
+cat > /etc/skel/.config/kdedefaults/ksplashrc << 'KSPLASHRC_EOF'
+[KSplash]
+Engine=KSplashQML
+Theme=org.kde.breezedark.desktop
+KSPLASHRC_EOF
+
+printf 'org.kde.breezedark.desktop\n' > /etc/skel/.config/kdedefaults/package
+
+# Power management: disable screen dim/off and screen lock
+cat > /etc/skel/.config/powerdevilrc << 'POWERDEVIL_EOF'
+[AC][Display]
+DimDisplayIdleTimeoutSec=-1
+DimDisplayWhenIdle=false
+TurnOffDisplayIdleTimeoutSec=-1
+TurnOffDisplayWhenIdle=false
+POWERDEVIL_EOF
+
+cat > /etc/skel/.config/kscreenlockerrc << 'KSCREENLOCKER_EOF'
+[Daemon]
+Autolock=false
+LockOnResume=false
+Timeout=0
+KSCREENLOCKER_EOF
+
+${if_install_mozc}# Add Flatpak flathub repository
+flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+# Install Fcitx5 + Mozc via Flatpak
+flatpak install -y flathub org.fcitx.Fcitx5 org.fcitx.Fcitx5.Addon.Mozc
+
+# Fcitx5-related /etc/skel directories
+mkdir -p /etc/skel/.config/plasma-workspace/env
+mkdir -p /etc/skel/.var/app/org.fcitx.Fcitx5/config/fcitx5/conf
+mkdir -p /etc/skel/.local/share/flatpak/db
+
+# KWin: set Fcitx5 as input method
+cat > /etc/skel/.config/kwinrc << 'KWINRC_EOF'
+[Wayland]
+InputMethod=/var/lib/flatpak/exports/share/applications/org.fcitx.Fcitx5.desktop
+KWINRC_EOF
+
+# Fcitx5 environment variables
+cat > /etc/skel/.config/plasma-workspace/env/fcitx5.sh << 'FCITX5ENV_EOF'
+#!/bin/sh
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+FCITX5ENV_EOF
+chmod +x /etc/skel/.config/plasma-workspace/env/fcitx5.sh
+
+# Fcitx5 profile: Mozc as default
+cat > /etc/skel/.var/app/org.fcitx.Fcitx5/config/fcitx5/profile << 'FCITX5PROFILE_EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=mozc
+
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+
+[Groups/0/Items/1]
+Name=mozc
+Layout=
+
+[GroupOrder]
+0=Default
+FCITX5PROFILE_EOF
+
+# Hide Fcitx5 Wayland diagnostic popup
+cat > /etc/skel/.var/app/org.fcitx.Fcitx5/config/fcitx5/conf/notifications.conf << 'FCITX5NOTIFY_EOF'
+[HiddenNotifications]
+0=wayland-diagnose-kde
+FCITX5NOTIFY_EOF${endif_install_mozc}
+
+${if_enable_rdp}# Open RDP port
+firewall-offline-cmd --add-port=3389/tcp
+
+# Install RPM Fusion and ffmpeg for H264 RDP encoding
+dnf install -y --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-10.noarch.rpm
+dnf install -y --allowerasing ffmpeg
+
+# RDP-related /etc/skel directories
+mkdir -p /etc/skel/.config/systemd/user/plasma-workspace.target.wants
+mkdir -p /etc/skel/.config/systemd/user/app-org.kde.krdpserver.service.d
+mkdir -p /etc/skel/.config/autostart
+mkdir -p /etc/skel/.local/share/krdpserver
+
+# RDP server configuration
+cat > /etc/skel/.config/krdpserverrc << 'KRDPSERVERRC_EOF'
+[General]
+Autostart=true
+Certificate=/home/${name}/.local/share/krdpserver/krdp.crt
+CertificateKey=/home/${name}/.local/share/krdpserver/krdp.key
+Users=${name}
+KRDPSERVERRC_EOF
+
+# Generate TLS certificate for krdpserver
+openssl req -x509 -newkey rsa:2048 \
+  -keyout /etc/skel/.local/share/krdpserver/krdp.key \
+  -out /etc/skel/.local/share/krdpserver/krdp.crt \
+  -days 3650 -nodes -subj '/CN=make-rocky-bootable' 2>/dev/null
+chmod 600 /etc/skel/.local/share/krdpserver/krdp.key
+
+# krdpserver systemd autostart symlinks
+ln -sf /usr/lib/systemd/user/app-org.kde.krdpserver.service \
+  /etc/skel/.config/systemd/user/plasma-krdp_server.service
+ln -sf /usr/lib/systemd/user/app-org.kde.krdpserver.service \
+  /etc/skel/.config/systemd/user/plasma-workspace.target.wants/app-org.kde.krdpserver.service
+
+# krdpserver systemd override
+cat > /etc/skel/.config/systemd/user/app-org.kde.krdpserver.service.d/override.conf << 'KRDPOVERRIDE_EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/krdpserver -u %u -p %u
+KRDPOVERRIDE_EOF
+
+# sudoers: allow wheel group to restart SDDM without password
+cat > /etc/sudoers.d/sddm-restart << 'SDDMSUDOERS_EOF'
+%wheel ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart sddm
+SDDMSUDOERS_EOF
+chmod 440 /etc/sudoers.d/sddm-restart
+
+# Desktop shortcuts
+cat > '/etc/skel/Desktop/Restart RDP.desktop' << 'RDPDESKTOP_EOF'
+[Desktop Entry]
+Type=Application
+Name=Restart RDP Server
+Exec=systemctl --user restart app-org.kde.krdpserver.service
+Icon=network-server
+Terminal=false
+RDPDESKTOP_EOF
+
+cat > '/etc/skel/Desktop/Restart KDE.desktop' << 'KDEDESKTOP_EOF'
+[Desktop Entry]
+Type=Application
+Name=Restart KDE Session
+Exec=sudo systemctl restart sddm
+Icon=system-reboot
+Terminal=false
+KDEDESKTOP_EOF
+
+for f in 'Restart RDP.desktop' 'Restart KDE.desktop'; do
+    chmod +x "/etc/skel/Desktop/$f"
+${if_language-japanese-support}
+    cp "/etc/skel/Desktop/$f" "/etc/skel/デスクトップ/$f"
+    chmod +x "/etc/skel/デスクトップ/$f"
+${endif_language-japanese-support}
+done
+
+# SDDM autologin
+mkdir -p /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/autologin.conf << 'SDDMAUTOLOGIN_EOF'
+[Autologin]
+User=${name}
+Session=plasma
+SDDMAUTOLOGIN_EOF
+
+# XDP portal permission: autostart script (runs once, then removes itself)
+cat > /usr/local/bin/setup-krdp-permission.sh << 'XDPSCRIPT_EOF'
+#!/bin/bash
+gdbus call \
+  --session \
+  --dest org.freedesktop.impl.portal.PermissionStore \
+  --object-path /org/freedesktop/impl/portal/PermissionStore \
+  --method org.freedesktop.impl.portal.PermissionStore.Set \
+  'kde-authorized' true 'remote-desktop' "{'org.kde.krdpserver': ['yes']}" "<''>" && \
+  rm -f "$HOME/.config/autostart/setup-krdp-permission.desktop"
+XDPSCRIPT_EOF
+chmod +x /usr/local/bin/setup-krdp-permission.sh
+
+cat > /etc/skel/.config/autostart/setup-krdp-permission.desktop << 'XDPAUTOSTART_EOF'
+[Desktop Entry]
+Type=Application
+Name=Setup KRDP Permission
+Exec=/usr/local/bin/setup-krdp-permission.sh
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+XDPAUTOSTART_EOF${endif_enable_rdp}
