@@ -1,102 +1,241 @@
 # make-rocky-bootable
 
-`make-rocky-bootable` allows for the easy creation of custom bootable ISO images. :)
-
-![GUI Mode Screenshot](README/res/screenshot0.png)
+An interactive tool for easily creating custom bootable ISO images. :)
 
 ## Languages
-- [English (英語)](README/README_EN.md)
 - [Japanese (日本語)](README/README_JP.md)
 
 ## Table of Contents
-- [make-rocky-bootable](#make-rocky-bootable)
-  - [Languages](#languages)
-  - [Table of Contents](#table-of-contents)
-  - [Requirements](#requirements)
-  - [Usage](#usage)
-  - [Benefits of make-rocky-bootable](#benefits-of-make-rocky-bootable)
-  - [Important Notes Before Using the Created ISO](#important-notes-before-using-the-created-iso)
+- [Overview](#overview)
+- [Requirements](#requirements)
+- [Usage](#usage)
+- [Plugin System](#plugin-system)
+- [Available Plugins](#available-plugins)
+- [Startup Scripts](#startup-scripts)
+- [Important Notes Before Use](#important-notes-before-use)
+
+---
+
+## Overview
+
+`make-rocky-bootable` is a bootable ISO builder for Rocky Linux using a plugin-based system.
+Simply select the OS version, features, and boot mode through an interactive TUI to automatically generate a custom ISO.
+
+**Supported OS versions:**
+
+| OS | GUI |
+|----|-----|
+| Rocky Linux 8 | XFCE + XRDP |
+| Rocky Linux 9 | XFCE + XRDP |
+| Rocky Linux 10 | KDE Plasma + krdp ⚠️ Experimental |
+
+> ⚠️ **Rocky Linux 10 + KDE Plasma is experimental.**
+> In virtualized environments (VMware, Hyper-V, VirtualBox, etc.), changing the screen resolution
+> may cause the session to become unresponsive. Physical machines are recommended.
+
+---
 
 ## Requirements
 
-- A Rocky Linux 9 system with virtualization (KVM) enabled
-  (Other than Rocky Linux 9, it has not been tested, but it might work on EL8 or later compatible OS.)
-- `qemu-kvm`
-- `lorax`
-- `lorax-lmc-virt`
+A Rocky Linux 8 / 9 / 10 host with KVM enabled is recommended.
+
+**Required packages:**
+
+```sh
+dnf install -y qemu-kvm lorax lorax-lmc-virt wget isomd5sum syslinux-nonlinux
+```
+
+---
 
 ## Usage
 
-1. **Run make-rocky-bootable**
-    ```sh
-    # git clone https://github.com/lezoid/make-rocky-bootable.git
-    # cd make-rocky-bootable
-    # ./build.sh --help
-    Usage: ./build.sh [--boot-mode MODE] [--help]
-    
-    Options:
-     --boot-mode MODE     Specify the boot mode: 'uefi', 'mbr', 'uefi_gui', or 'mbr_gui'.
-                       - uefi: Uses kickstart/uefi_main.ks (default)
-                       - mbr: Uses kickstart/mbr_main.ks
-                       - uefi_gui: Uses kickstart/uefi_gui.ks
-                       - mbr_gui: Uses kickstart/mbr_gui.ks
-     --help               Display this help message.
-    # ./build.sh
-    ```
+```sh
+git clone https://github.com/lezoid/make-rocky-bootable.git
+cd make-rocky-bootable
+./build.py
+```
 
-    Basically, just running `build.sh` will generate the bootable ISO.
-    The output will be in the `build-iso` directory with UEFI support.
-    If you want to create a GUI-supported image, specify `--boot-mode` with either `uefi_gui` or `mbr_gui`.
-    
-    Even in UEFI mode, the image can boot on BIOS-configured machines.
-    If you don't need EFI support, use `--boot-mode` with `mbr` or `mbr_gui` to create an ISO without EFI-related packages or files.
+The TUI will launch and prompt you to configure the following in order:
 
-2. **Settings**
-   1. Add packages (Edit Kickstart)
-    ```text
-    By editing the `%packages` section in kickstart/uefi_*.ks or kickstart/mbr_*.ks, you can add more default packages.
-    ```
-   2. Change the root password (Edit Kickstart)
-    ```text
-    You can change the root password by modifying the `rootpw` line in the Kickstart file.
-    # root user plain text password settings
-    rootpw --plaintext password
-    # root user encrypted password setting
-    # rootpw --iscrypted $6$randomsalt$encryptedpasswordhash
-    ```
-   3. Embed custom tools
-    ```text
-    You can either expand your own files into the root image via Kickstart,
-    or use the built-in `/run/initramfs/live/scripts/startup.sh` executed by systemd during boot.
-    The scripts directory in the ISO (`/run/initramfs/live/scripts/`) is copied from the `make-rocky-bootable/scripts/` directory during the ISO creation process.
-    ```
+1. **Select OS** — Rocky Linux 8 / 9 / 10
+2. **Select plugins** — Choose features to install via checkbox
+3. **Plugin settings** — Enter values for selected plugins (username, password, etc.)
+4. **Set root password**
+5. **Select boot mode** — UEFI Boot / CSM/BIOS (MBR) Boot
+6. **ISO download & build** — Automatically fetches and builds the ISO
 
-    ```sh
-    [root@image make-rocky-bootable]# ll scripts/  ← This becomes /run/initramfs/live/scripts/
-    -rwxr-xr-x. 1 root root 289 Sep 24 17:09  startup.sh ← This file
-    ```
-    Therefore, even if you are not familiar with Kickstart, you can place your files or scripts in the `scripts/` directory and write your custom processes in `startup.sh`, allowing your own tools or scripts to run during boot.
+The build takes **approximately 30 minutes to 1 hour**. When complete, the ISO is output to `build-iso/`.
 
-## Benefits of make-rocky-bootable
+### Options
 
-- **Embed and Execute Custom Binaries and Scripts**
-  The created live DVD executes `/run/initramfs/live/scripts/startup.sh` through systemd at boot.
-  This script directory is copied from the `make-rocky-bootable/scripts/` directory during ISO creation.
-  
-  Even users unfamiliar with Kickstart can easily embed files into the bootable ISO and automatically run custom processes, providing flexible customization options.
+```sh
+./build.py [options]
 
-- **Create Lightweight GUI Images with RDP Support**
-  Many modern default live CDs come with GNOME 3 by default, which can be slow on servers with poor graphical performance due to excessive effect processing.
-  
-  To address this, `make-rocky-bootable` allows you to generate a lightweight live DVD with XFCE as the default GUI. 
-  Additionally, since xrdp is enabled, you can use remote desktop functionality, including clipboard support.
+  --debug           Debug mode: show generated kickstart
+  --view-kickstart  Print the kickstart only; skip ISO download and build
+  --language LANG   Force display language (e.g. en, ja)
+```
 
-## Important Notes Before Using the Created ISO
+---
 
-- The standard image opens the SSH port and allows root login via the Kickstart file.
-- GUI images open both SSH and RDP ports.
-- All users, by default, have "password" as their password, as defined in the Kickstart file.
-- It is highly recommended that you modify the Kickstart file to set a more complex root password or switch to key-based authentication.
-  If you are unfamiliar with Kickstart, you can modify the embedded script (`startup.sh`) to change the password upon boot.
-- The bootable ISO is intended for temporary use and is not recommended for environments with open access to many users.
-- For the GUI version, RDP and physical graphical logins (through the graphical target) cannot be accessed simultaneously by the same user. Please log out from one session before switching to the other.
+## Plugin System
+
+The tool's behavior can be customized through plugins.
+
+### Directory Structure
+
+```
+plugins/
+├── os/
+│   ├── rocky8/osdefine      # Rocky Linux 8 definition
+│   ├── rocky9/osdefine      # Rocky Linux 9 definition
+│   └── rocky10/osdefine     # Rocky Linux 10 definition
+└── features/
+    ├── packages/            # Package add/remove plugins
+    │   └── plugin-name/
+    │       └── metadata.ini
+    └── post/                # %post script plugins
+        └── plugin-name/
+            ├── metadata.ini
+            └── ISO_DIR/     # Optional: files to place inside the ISO
+```
+
+### INI Format
+
+```ini
+[meta]
+label = Plugin Name
+label.ja = プラグイン名
+description = What this plugin does
+description.ja = プラグインの説明
+check = true          # true: selectable in TUI / false: always applied
+default = false       # true: pre-selected (only effective when check=true)
+order = 100           # Application order (lower = earlier)
+supported_os = rocky10  # Limit to specific OS IDs (omit for all OSes)
+requires = add-user   # Dependency plugin name (auto-added if not selected)
+PLUGIN_ISO_DIR = false  # true: copy ISO_DIR/ contents into the LiveCD scripts area
+
+[prompts]
+# Define fields for interactive user input
+name.type = text
+name.label = Username
+name.label.ja = ユーザー名
+name.default = user
+
+password.type = password
+password.label = Password for ${name}
+password.label.ja = ${name}ユーザーのパスワードを入力してください
+
+enabled.type = boolean
+enabled.label = Enable this feature?
+enabled.label.ja = この機能を有効化しますか
+enabled.note = Note: requires restart
+enabled.note.ja = ※ 再起動が必要です
+
+[packages]
+# Packages to add to %packages
+vim
+
+[packages.remove]
+# Packages to exclude from %packages
+-iwl*-firmware
+
+[post]
+# Shell script added to %post
+# Reference prompt values with ${variable}
+echo "Hello, ${name}"
+```
+
+### PLUGIN_ISO_DIR
+
+By creating an `ISO_DIR/` folder inside a plugin directory and setting `PLUGIN_ISO_DIR = true` in `metadata.ini`,
+the contents of `ISO_DIR/` will be copied to the following path in the LiveCD during the build:
+
+```
+ISO_DIR/ contents  →  scripts/make-rocky-bootable/plugins/{plugin-name}/
+```
+
+After booting the LiveCD, the files are accessible at **`/run/initramfs/live/scripts/make-rocky-bootable/plugins/{plugin-name}/`**.
+
+### Token Substitution
+
+Collected prompt values can be referenced in `[post]`:
+
+| Syntax | Description |
+|--------|-------------|
+| `${variable}` | Replaced with the variable's value |
+| `${if_variable}...${endif_variable}` | Output only when variable is truthy |
+
+---
+
+## Available Plugins
+
+For the full plugin list, details, and instructions on creating custom plugins, see the plugin documentation.
+
+**[→ Plugin Documentation (English)](docs/plugins/en/README.md)**
+
+---
+
+## Startup Scripts
+
+Files under `scripts/` are embedded into the root image during ISO creation and are accessible as **`/run/initramfs/live/scripts/`** when booted as a LiveCD.
+
+```
+Repository path                                       LiveCD path
+scripts/                                    →    /run/initramfs/live/scripts/
+├── make-rocky-bootable/
+│   └── plugins/                            →    /run/initramfs/live/scripts/make-rocky-bootable/plugins/
+│       ├── firstboot-root-startup/         →    (when firstboot-root-startup plugin is enabled)
+│       │   └── startup-root.sh            →    /run/initramfs/live/scripts/make-rocky-bootable/plugins/firstboot-root-startup/startup-root.sh
+│       └── add-user/                       →    (when add-user plugin is enabled)
+│           └── startup-user.sh            →    /run/initramfs/live/scripts/make-rocky-bootable/plugins/add-user/startup-user.sh
+└── users/                                  →    /run/initramfs/live/scripts/users/
+```
+
+> `make-rocky-bootable/plugins/` is generated dynamically at build time and automatically cleaned up after the build completes.
+> `users/` is a directory where you can freely place files (e.g. resources referenced by startup scripts).
+
+The startup scripts are managed as `ISO_DIR/` content within their respective plugins:
+
+```
+plugins/features/post/firstboot-root-startup/ISO_DIR/startup-root.sh   # root startup template
+plugins/features/post/add-user/ISO_DIR/startup-user.sh                 # user startup template
+```
+
+### startup-root.sh
+
+**Runs automatically as root, exactly once on first boot.**
+
+When the `firstboot-root-startup` plugin is enabled, it runs via a systemd service (`firstboot-root-startup.service`).
+After execution, the service file is self-deleted, so it does not run on subsequent boots.
+
+```
+Execution: OS boot → After network.target → startup-root.sh runs → service self-deletes
+Log:       /var/log/make-rocky-bootable/firstboot-root-startup.log
+```
+
+### startup-user.sh
+
+**Runs automatically as the general user, exactly once on first login.**
+
+Only active when the "Enable first-login user startup service" option in the `add-user` plugin is enabled.
+Registered as a user systemd service and self-deleted after execution.
+
+```
+Execution: User login → After default.target → startup-user.sh runs → service self-deletes
+Log:       ~/.local/log/make-rocky-bootable/firstboot-user-startup.log
+```
+
+Even users unfamiliar with Kickstart can automate custom tool execution and system configuration
+by simply adding their processes to these scripts.
+
+---
+
+## Important Notes Before Use
+
+- The created ISO contains the root password configured at build time.
+- SELinux operates in `permissive` mode.
+- The SSH port is open and root login is permitted.
+- If a GUI plugin is enabled, the RDP port (3389) is also opened.
+- **This ISO is intended for temporary use. Use in environments accessible by the general public is not recommended.**
+- The KDE version does not support simultaneous login by the same user from both RDP and the physical graphical display.

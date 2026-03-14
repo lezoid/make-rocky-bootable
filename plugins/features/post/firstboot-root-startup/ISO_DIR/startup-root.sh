@@ -2,6 +2,8 @@
 # Root firstboot startup script template
 #
 
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] startup-root.sh started"
+
 hostname localhost
 
 ## Hide login prompt os/kernel
@@ -13,3 +15,5 @@ hostname localhost
 
 ## make-rocky-bootable root firstboot script
 rm -f /root/original-ks.cfg
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] startup-root.sh finished"

@@ -122,8 +122,10 @@ hardlink ${KERNELDIR}/initrd.img ${BOOTDIR}
 # Add the /opt/scripts directory to the live system
 <% optgraft = "" %>
 %if exists(scriptdir):
-    mkdir -p scripts
-    install ${scriptdir}/* /scripts
+##    mkdir -p scripts
+##    install ${scriptdir}/* /scripts
+    runcmd mkdir -p ${outroot}/scripts
+    runcmd cp -r ${inroot}/${scriptdir}/. ${outroot}/scripts/
     <% optgraft += " /scripts={0}/scripts".format(outroot) %>
 %endif
 
