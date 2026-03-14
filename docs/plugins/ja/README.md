@@ -1,7 +1,7 @@
 # プラグイン一覧
 
 make-rocky-bootable のプラグインは `plugins/` ディレクトリに配置されています。
-各プラグインの詳細は個別ページを参照してください。
+このページでは利用可能なプラグイン一覧と、プラグインシステムの仕組みをまとめています。
 
 ## 常時適用プラグイン
 
@@ -30,3 +30,91 @@ make-rocky-bootable のプラグインは `plugins/` ディレクトリに配置
 ## 独自プラグインの作成
 
 独自プラグインの作成方法については [カスタムプラグイン作成ガイド](custom-plugin.md) を参照してください。
+
+## プラグインシステム
+
+本ツールはプラグインによって動作をカスタマイズできます。
+
+### ディレクトリ構成
+
+```
+plugins/
+├── os/
+│   ├── rocky8/osdefine      # Rocky Linux 8 の定義
+│   ├── rocky9/osdefine      # Rocky Linux 9 の定義
+│   └── rocky10/osdefine     # Rocky Linux 10 の定義
+└── features/
+    ├── packages/            # パッケージ追加・削除プラグイン
+    │   └── plugin-name/
+    │       └── metadata.ini
+    └── post/                # %post スクリプトプラグイン
+        └── plugin-name/
+            ├── metadata.ini
+            └── ISO_DIR/     # オプション: ISO内に配置するファイル群
+```
+
+### プラグインのINI形式
+
+```ini
+[meta]
+label = Plugin Name
+label.ja = プラグイン名
+description = What this plugin does
+description.ja = プラグインの説明
+check = true          # true: TUIで選択可能, false: 常時適用
+default = false       # true: デフォルトでチェック済み
+order = 100           # 適用順序（数値が小さいほど先）
+supported_os = rocky10  # 対応OSを限定する場合に指定（省略時は全OS対応）
+requires = add-user   # 依存プラグイン名（自動で有効化される）
+PLUGIN_ISO_DIR = false  # true: ISO_DIR/ の中身を LiveCD の scripts 領域にコピー
+
+[prompts]
+# ユーザー入力を受け付けるフィールドを定義する
+name.type = text
+name.label = Username
+name.label.ja = ユーザー名
+name.default = user
+
+password.type = password
+password.label = Password for ${name}
+password.label.ja = ${name}ユーザーのパスワードを入力してください
+
+enabled.type = boolean
+enabled.label = Enable this feature?
+enabled.label.ja = この機能を有効化しますか
+enabled.note = Note: requires restart
+enabled.note.ja = ※ 再起動が必要です
+
+[packages]
+# %packages に追加するパッケージ
+vim
+
+[packages.remove]
+# %packages から除外するパッケージ
+-iwl*-firmware
+
+[post]
+# %post スクリプトに追加するシェルスクリプト
+# ${変数名} でプロンプト入力値を参照できる
+echo "Hello, ${name}"
+```
+
+### PLUGIN_ISO_DIR
+
+プラグインディレクトリ内に `ISO_DIR/` フォルダを作成し、`metadata.ini` に `PLUGIN_ISO_DIR = true` を設定すると、
+ビルド時に `ISO_DIR/` の中身が LiveCD の以下のパスにコピーされます。
+
+```
+ISO_DIR/ の中身  →  scripts/make-rocky-bootable/plugins/{plugin名}/
+```
+
+LiveCD起動後は **`/run/initramfs/live/scripts/make-rocky-bootable/plugins/{plugin名}/`** としてアクセスできます。
+
+### トークン置換
+
+`[post]` 内では以下の記法でプロンプト入力値を参照できます。
+
+| 記法 | 説明 |
+|------|------|
+| `${変数名}` | 変数の値に置換 |
+| `${if_変数名}...${endif_変数名}` | 変数が真のときのみ出力 |

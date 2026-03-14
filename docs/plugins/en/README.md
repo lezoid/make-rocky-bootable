@@ -1,7 +1,7 @@
 # Plugin List
 
 Plugins are located in the `plugins/` directory.
-See individual pages for details on each plugin.
+This page summarizes the available plugins and how the plugin system works.
 
 ## Always-applied Plugins
 
@@ -30,3 +30,91 @@ A ✓ in the "Default" column means the plugin is pre-selected.
 ## Creating Custom Plugins
 
 See the [Custom Plugin Guide](custom-plugin.md) for instructions on creating your own plugins.
+
+## Plugin System
+
+The tool's behavior can be customized through plugins.
+
+### Directory Structure
+
+```
+plugins/
+├── os/
+│   ├── rocky8/osdefine      # Rocky Linux 8 definition
+│   ├── rocky9/osdefine      # Rocky Linux 9 definition
+│   └── rocky10/osdefine     # Rocky Linux 10 definition
+└── features/
+    ├── packages/            # Package add/remove plugins
+    │   └── plugin-name/
+    │       └── metadata.ini
+    └── post/                # %post script plugins
+        └── plugin-name/
+            ├── metadata.ini
+            └── ISO_DIR/     # Optional: files to place inside the ISO
+```
+
+### INI Format
+
+```ini
+[meta]
+label = Plugin Name
+label.ja = プラグイン名
+description = What this plugin does
+description.ja = プラグインの説明
+check = true          # true: selectable in TUI / false: always applied
+default = false       # true: pre-selected (only effective when check=true)
+order = 100           # Application order (lower = earlier)
+supported_os = rocky10  # Limit to specific OS IDs (omit for all OSes)
+requires = add-user   # Dependency plugin name (auto-added if not selected)
+PLUGIN_ISO_DIR = false  # true: copy ISO_DIR/ contents into the LiveCD scripts area
+
+[prompts]
+# Define fields for interactive user input
+name.type = text
+name.label = Username
+name.label.ja = ユーザー名
+name.default = user
+
+password.type = password
+password.label = Password for ${name}
+password.label.ja = ${name}ユーザーのパスワードを入力してください
+
+enabled.type = boolean
+enabled.label = Enable this feature?
+enabled.label.ja = この機能を有効化しますか
+enabled.note = Note: requires restart
+enabled.note.ja = ※ 再起動が必要です
+
+[packages]
+# Packages to add to %packages
+vim
+
+[packages.remove]
+# Packages to exclude from %packages
+-iwl*-firmware
+
+[post]
+# Shell script added to %post
+# Reference prompt values with ${variable}
+echo "Hello, ${name}"
+```
+
+### PLUGIN_ISO_DIR
+
+By creating an `ISO_DIR/` folder inside a plugin directory and setting `PLUGIN_ISO_DIR = true` in `metadata.ini`,
+the contents of `ISO_DIR/` will be copied to the following path in the LiveCD during the build:
+
+```
+ISO_DIR/ contents  →  scripts/make-rocky-bootable/plugins/{plugin-name}/
+```
+
+After booting the LiveCD, the files are accessible at **`/run/initramfs/live/scripts/make-rocky-bootable/plugins/{plugin-name}/`**.
+
+### Token Substitution
+
+Collected prompt values can be referenced in `[post]`:
+
+| Syntax | Description |
+|--------|-------------|
+| `${variable}` | Replaced with the variable's value |
+| `${if_variable}...${endif_variable}` | Output only when variable is truthy |

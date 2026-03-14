@@ -1,15 +1,18 @@
 # make-rocky-bootable
 
 An interactive tool for easily creating custom bootable ISO images. :)
+You can create Live images that include a GUI and your own scripts.
+
+![screenshot](README/res/screenshot0.png)
 
 ## Languages
+- [English](README.md)
 - [Japanese (日本語)](README/README_JP.md)
 
 ## Table of Contents
 - [Overview](#overview)
 - [Requirements](#requirements)
 - [Usage](#usage)
-- [Plugin System](#plugin-system)
 - [Available Plugins](#available-plugins)
 - [Startup Scripts](#startup-scripts)
 - [Important Notes Before Use](#important-notes-before-use)
@@ -19,7 +22,8 @@ An interactive tool for easily creating custom bootable ISO images. :)
 ## Overview
 
 `make-rocky-bootable` is a bootable ISO builder for Rocky Linux using a plugin-based system.
-Simply select the OS version, features, and boot mode through an interactive TUI to automatically generate a custom ISO.
+Plugins let you customize the bootable ISO with features such as GUI support, RDP enablement, and embedded startup scripts.
+Even without Kickstart knowledge, you can generate a custom ISO by simply selecting the OS version, plugin features, and boot mode through the interactive TUI.
 
 **Supported OS versions:**
 
@@ -78,99 +82,26 @@ The build takes **approximately 30 minutes to 1 hour**. When complete, the ISO i
 
 ---
 
-## Plugin System
-
-The tool's behavior can be customized through plugins.
-
-### Directory Structure
-
-```
-plugins/
-├── os/
-│   ├── rocky8/osdefine      # Rocky Linux 8 definition
-│   ├── rocky9/osdefine      # Rocky Linux 9 definition
-│   └── rocky10/osdefine     # Rocky Linux 10 definition
-└── features/
-    ├── packages/            # Package add/remove plugins
-    │   └── plugin-name/
-    │       └── metadata.ini
-    └── post/                # %post script plugins
-        └── plugin-name/
-            ├── metadata.ini
-            └── ISO_DIR/     # Optional: files to place inside the ISO
-```
-
-### INI Format
-
-```ini
-[meta]
-label = Plugin Name
-label.ja = プラグイン名
-description = What this plugin does
-description.ja = プラグインの説明
-check = true          # true: selectable in TUI / false: always applied
-default = false       # true: pre-selected (only effective when check=true)
-order = 100           # Application order (lower = earlier)
-supported_os = rocky10  # Limit to specific OS IDs (omit for all OSes)
-requires = add-user   # Dependency plugin name (auto-added if not selected)
-PLUGIN_ISO_DIR = false  # true: copy ISO_DIR/ contents into the LiveCD scripts area
-
-[prompts]
-# Define fields for interactive user input
-name.type = text
-name.label = Username
-name.label.ja = ユーザー名
-name.default = user
-
-password.type = password
-password.label = Password for ${name}
-password.label.ja = ${name}ユーザーのパスワードを入力してください
-
-enabled.type = boolean
-enabled.label = Enable this feature?
-enabled.label.ja = この機能を有効化しますか
-enabled.note = Note: requires restart
-enabled.note.ja = ※ 再起動が必要です
-
-[packages]
-# Packages to add to %packages
-vim
-
-[packages.remove]
-# Packages to exclude from %packages
--iwl*-firmware
-
-[post]
-# Shell script added to %post
-# Reference prompt values with ${variable}
-echo "Hello, ${name}"
-```
-
-### PLUGIN_ISO_DIR
-
-By creating an `ISO_DIR/` folder inside a plugin directory and setting `PLUGIN_ISO_DIR = true` in `metadata.ini`,
-the contents of `ISO_DIR/` will be copied to the following path in the LiveCD during the build:
-
-```
-ISO_DIR/ contents  →  scripts/make-rocky-bootable/plugins/{plugin-name}/
-```
-
-After booting the LiveCD, the files are accessible at **`/run/initramfs/live/scripts/make-rocky-bootable/plugins/{plugin-name}/`**.
-
-### Token Substitution
-
-Collected prompt values can be referenced in `[post]`:
-
-| Syntax | Description |
-|--------|-------------|
-| `${variable}` | Replaced with the variable's value |
-| `${if_variable}...${endif_variable}` | Output only when variable is truthy |
-
----
-
 ## Available Plugins
 
-For the full plugin list, details, and instructions on creating custom plugins, see the plugin documentation.
+make-rocky-bootable lets you customize LiveCD functionality through plugins.
+In addition to required OS-wide base plugins, selectable feature plugins can be chosen through the TUI during the build.
+
+### Selectable Plugins
+
+Plugins with `check = true` can be selected via TUI at build time.
+A ✓ in the "Default" column means the plugin is pre-selected.
+
+| Plugin | Description | OS | Default | Requires | Details |
+|--------|-------------|----|---------|----------|---------|
+| language-japanese-support | Japanese locale, keyboard, and timezone | All | — | — | [→](docs/plugins/en/language-japanese-support.md) |
+| add-user | Create a general user account | All | — | — | [→](docs/plugins/en/add-user.md) |
+| add-xfce-gui-support | XFCE desktop + XRDP | Rocky 8, 9 | — | — | [→](docs/plugins/en/add-xfce-gui-support.md) |
+| add-kde-gui-support | KDE Plasma desktop + krdp (RDP) | Rocky 10 ⚠️ | — | add-user | [→](docs/plugins/en/add-kde-gui-support.md) |
+| firstboot-root-startup | Run startup-root.sh as root on first boot | All | ✓ | — | [→](docs/plugins/en/firstboot-root-startup.md) |
+| default-sysprep | System cleanup (sysprep) | All | ✓ | — | [→](docs/plugins/en/default-sysprep.md) |
+
+For the full plugin list including always-applied plugins, plugin system details, and instructions on creating custom plugins, see the plugin documentation.
 
 **[→ Plugin Documentation (English)](docs/plugins/en/README.md)**
 
