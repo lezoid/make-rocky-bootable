@@ -11,7 +11,7 @@ Sets up a systemd service that runs `startup-root.sh` as root exactly once on th
 | Field | Value |
 |-------|-------|
 | Type | Selectable (`check = true`) |
-| Default | ✓ (pre-selected) |
+| Default | — (not selected) |
 | Order | 110 |
 | Supported OS | All |
 | Requires | — |

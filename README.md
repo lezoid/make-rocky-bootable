@@ -14,7 +14,7 @@ You can create Live images that include a GUI and your own scripts.
 - [Requirements](#requirements)
 - [Usage](#usage)
 - [Available Plugins](#available-plugins)
-- [Startup Scripts](#startup-scripts)
+- [Embedded Scripts and Files](#embedded-scripts-and-files)
 - [Important Notes Before Use](#important-notes-before-use)
 
 ---
@@ -95,10 +95,10 @@ A ✓ in the "Default" column means the plugin is pre-selected.
 | Plugin | Description | OS | Default | Requires | Details |
 |--------|-------------|----|---------|----------|---------|
 | language-japanese-support | Japanese locale, keyboard, and timezone | All | — | — | [→](docs/plugins/en/language-japanese-support.md) |
-| add-user | Create a general user account | All | — | — | [→](docs/plugins/en/add-user.md) |
+| add-user | Create a general user account + optionally disable root SSH login + optionally run startup-user.sh on first login | All | — | — | [→](docs/plugins/en/add-user.md) |
 | add-xfce-gui-support | XFCE desktop + XRDP | Rocky 8, 9 | — | — | [→](docs/plugins/en/add-xfce-gui-support.md) |
 | add-kde-gui-support | KDE Plasma desktop + krdp (RDP) | Rocky 10 ⚠️ | — | add-user | [→](docs/plugins/en/add-kde-gui-support.md) |
-| firstboot-root-startup | Run startup-root.sh as root on first boot | All | ✓ | — | [→](docs/plugins/en/firstboot-root-startup.md) |
+| firstboot-root-startup | Run startup-root.sh as root on first boot | All | — | — | [→](docs/plugins/en/firstboot-root-startup.md) |
 | default-sysprep | System cleanup (sysprep) | All | ✓ | — | [→](docs/plugins/en/default-sysprep.md) |
 
 For the full plugin list including always-applied plugins, plugin system details, and instructions on creating custom plugins, see the plugin documentation.
@@ -107,9 +107,11 @@ For the full plugin list including always-applied plugins, plugin system details
 
 ---
 
-## Startup Scripts
+## Embedded Scripts and Files
 
 Files under `scripts/` are embedded into the root image during ISO creation and are accessible as **`/run/initramfs/live/scripts/`** when booted as a LiveCD.
+
+### Repository Path Layout
 
 ```
 Repository path                                       LiveCD path
@@ -126,14 +128,14 @@ scripts/                                    →    /run/initramfs/live/scripts/
 > `make-rocky-bootable/plugins/` is generated dynamically at build time and automatically cleaned up after the build completes.
 > `users/` is a directory where you can freely place files (e.g. resources referenced by startup scripts).
 
-The startup scripts are managed as `ISO_DIR/` content within their respective plugins:
+The standard embedded startup scripts (`firstboot-root-startup`, `add-user`) are placed under each plugin's `ISO_DIR/`:
 
 ```
 plugins/features/post/firstboot-root-startup/ISO_DIR/startup-root.sh   # root startup template
 plugins/features/post/add-user/ISO_DIR/startup-user.sh                 # user startup template
 ```
 
-### startup-root.sh
+### firstboot-root-startup Plugin (startup-root.sh)
 
 **Runs automatically as root, exactly once on first boot.**
 
@@ -145,7 +147,7 @@ Execution: OS boot → After network.target → startup-root.sh runs → service
 Log:       /var/log/make-rocky-bootable/firstboot-root-startup.log
 ```
 
-### startup-user.sh
+### add-user Plugin (startup-user.sh)
 
 **Runs automatically as the general user, exactly once on first login.**
 

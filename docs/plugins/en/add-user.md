@@ -4,7 +4,7 @@
 
 ## Overview
 
-Creates a general user account with optional sudo privileges, root SSH restriction, and first-login startup service.
+Creates a general user account. In addition to optional sudo privileges, it can also optionally disable root SSH login and configure a one-time startup service that runs `startup-user.sh` on the general user's first login.
 
 ## Metadata
 
@@ -32,8 +32,8 @@ Creates a general user account with optional sudo privileges, root SSH restricti
 |---------|-------------|
 | User creation | Creates user with `useradd` and sets password |
 | sudo | Adds to wheel group if `sudoer=true` |
-| Root SSH | Modifies `/etc/ssh/sshd_config` if `disable_root_ssh=true` |
-| Startup service | Places a systemd user service in `/etc/skel` if `enable_firstboot_user_startup=true` |
+| Root SSH disable | Modifies `/etc/ssh/sshd_config` to disable root SSH login if `disable_root_ssh=true` |
+| First-login user startup service | Places a systemd user service in `/etc/skel` if `enable_firstboot_user_startup=true`, then runs `startup-user.sh` exactly once on first login |
 
 When `enable_firstboot_user_startup=true`:
 

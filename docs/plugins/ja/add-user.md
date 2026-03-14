@@ -4,7 +4,7 @@
 
 ## 概要
 
-一般ユーザーを作成します。sudo権限付与・root SSH無効化・初回ログイン起動サービスのオプションがあります。
+一般ユーザーを作成します。sudo権限付与に加えて、任意で root SSH ログインの無効化と、`startup-user.sh` を一般ユーザーの初回ログイン時に1回だけ実行する起動サービスを設定できます。
 
 ## メタ情報
 
@@ -34,8 +34,8 @@
 |------|------|
 | ユーザー作成 | `useradd` でユーザーを作成し、パスワードを設定 |
 | sudo権限 | `sudoer=true` の場合、wheel グループに追加 |
-| root SSH | `disable_root_ssh=true` の場合、`/etc/ssh/sshd_config` を変更 |
-| 起動サービス | `enable_firstboot_user_startup=true` の場合、`/etc/skel` に systemd ユーザーサービスを配置 |
+| root SSH 無効化 | `disable_root_ssh=true` の場合、`/etc/ssh/sshd_config` を変更して root の SSH ログインを無効化 |
+| 一般ユーザー初回起動サービス | `enable_firstboot_user_startup=true` の場合、`/etc/skel` に systemd ユーザーサービスを配置し、`startup-user.sh` を初回ログイン時に1回だけ実行 |
 
 `enable_firstboot_user_startup=true` の場合の動作:
 

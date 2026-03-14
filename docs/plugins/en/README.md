@@ -21,10 +21,10 @@ A ✓ in the "Default" column means the plugin is pre-selected.
 | Plugin | Description | OS | Default | Requires | Details |
 |--------|-------------|----|---------|----------|---------|
 | language-japanese-support | Japanese locale, keyboard, and timezone | All | — | — | [→](language-japanese-support.md) |
-| add-user | Create a general user account | All | — | — | [→](add-user.md) |
+| add-user | Create a general user account + optionally disable root SSH login + optionally run startup-user.sh on first login | All | — | — | [→](add-user.md) |
 | add-xfce-gui-support | XFCE desktop + XRDP | Rocky 8, 9 | — | — | [→](add-xfce-gui-support.md) |
 | add-kde-gui-support | KDE Plasma desktop + krdp (RDP) | Rocky 10 ⚠️ | — | add-user | [→](add-kde-gui-support.md) |
-| firstboot-root-startup | Run startup-root.sh as root on first boot | All | ✓ | — | [→](firstboot-root-startup.md) |
+| firstboot-root-startup | Run startup-root.sh as root on first boot | All | — | — | [→](firstboot-root-startup.md) |
 | default-sysprep | System cleanup (sysprep) | All | ✓ | — | [→](default-sysprep.md) |
 
 ## Creating Custom Plugins

@@ -15,16 +15,17 @@ make-rocky-bootable のプラグインは `plugins/` ディレクトリに配置
 
 ## 選択式プラグイン
 
-`check = true` のプラグインはビルド時にTUIで選択できます。
+`check = true` のプラグインはビルド時に TUI で選択を可能とします。
 「デフォルト」列が ✓ のものは初期状態でチェック済みです。
+依存関係を持つプラグインは、必要なプラグインが自動的に追加されます。
 
 | プラグイン名 | 概要 | 対応OS | デフォルト | 依存 | 詳細 |
 |------------|------|--------|-----------|------|------|
 | language-japanese-support | 日本語ロケール・キーボード・タイムゾーン設定 | 全OS | — | — | [→](language-japanese-support.md) |
-| add-user | 一般ユーザーの作成 | 全OS | — | — | [→](add-user.md) |
+| add-user | 一般ユーザーの作成 + root SSH ログイン無効化 (任意) + startup-user.sh を一般ユーザーで初回実行 (任意) | 全OS | — | — | [→](add-user.md) |
 | add-xfce-gui-support | XFCE デスクトップ + XRDP | Rocky 8, 9 | — | — | [→](add-xfce-gui-support.md) |
 | add-kde-gui-support | KDE Plasma デスクトップ + krdp (RDP) | Rocky 10 ⚠️ | — | add-user | [→](add-kde-gui-support.md) |
-| firstboot-root-startup | 初回起動時に startup-root.sh を root で実行 | 全OS | ✓ | — | [→](firstboot-root-startup.md) |
+| firstboot-root-startup | 初回起動時に startup-root.sh を root で実行 | 全OS | — | — | [→](firstboot-root-startup.md) |
 | default-sysprep | システムクリーンアップ (sysprep) | 全OS | ✓ | — | [→](default-sysprep.md) |
 
 ## 独自プラグインの作成

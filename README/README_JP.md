@@ -14,7 +14,7 @@ GUIや自前のスクリプトを含むLiveイメージの作成が可能です�
 - [動作要件](#動作要件)
 - [使い方](#使い方)
 - [利用可能なプラグイン](#利用可能なプラグイン)
-- [起動スクリプト](#起動スクリプト)
+- [スクリプトやファイルの埋め込み](#スクリプトやファイルの埋め込み)
 - [利用前の注意事項](#利用前の注意事項)
 
 ---
@@ -89,16 +89,17 @@ make-rocky-bootable では、プラグイン機能を通じて、LiveCD の機�
 
 ### 選択式プラグイン
 
-`check = true` のプラグインはビルド時に TUI で選択できます。
+内蔵のプラグインはビルド時に TUI で選択できます。
 「デフォルト」列が ✓ のものは初期状態でチェック済みです。
+また一部プラグインはソフトウェアの動作の関係上、依存関係が存在し、依存関係パッケージは自動的に選択がされます。
 
 | プラグイン名 | 概要 | 対応OS | デフォルト | 依存 | 詳細 |
 |------------|------|--------|-----------|------|------|
 | language-japanese-support | 日本語ロケール・キーボード・タイムゾーン設定 | 全OS | — | — | [→](../docs/plugins/ja/language-japanese-support.md) |
-| add-user | 一般ユーザーの作成 | 全OS | — | — | [→](../docs/plugins/ja/add-user.md) |
+| add-user | 一般ユーザーの作成 + root SSH ログイン無効化 (任意) + startup-user.sh を一般ユーザーで初回実行 (任意) | 全OS | — | — | [→](../docs/plugins/ja/add-user.md) |
 | add-xfce-gui-support | XFCE デスクトップ + XRDP | Rocky 8, 9 | — | — | [→](../docs/plugins/ja/add-xfce-gui-support.md) |
 | add-kde-gui-support | KDE Plasma デスクトップ + krdp (RDP) | Rocky 10 ⚠️ | — | add-user | [→](../docs/plugins/ja/add-kde-gui-support.md) |
-| firstboot-root-startup | 初回起動時に startup-root.sh を root で実行 | 全OS | ✓ | — | [→](../docs/plugins/ja/firstboot-root-startup.md) |
+| firstboot-root-startup | 初回起動時に startup-root.sh を root で実行 | 全OS | — | — | [→](../docs/plugins/ja/firstboot-root-startup.md) |
 | default-sysprep | システムクリーンアップ (sysprep) | 全OS | ✓ | — | [→](../docs/plugins/ja/default-sysprep.md) |
 
 常時適用プラグインを含む全プラグイン一覧、プラグインの仕組み、独自プラグインの作成方法については、プラグインドキュメントを参照してください。
@@ -107,10 +108,12 @@ make-rocky-bootable では、プラグイン機能を通じて、LiveCD の機�
 
 ---
 
-## 起動スクリプト
+## スクリプトやファイルの埋め込み
 
 `scripts/` 配下のファイルはISO作成時にrootイメージに組み込まれ、
 LiveCDとして起動した際には **`/run/initramfs/live/scripts/`** としてアクセスできます。
+
+### リポジトリ上のパス設計
 
 ```
 リポジトリ上のパス                                    LiveCD上のパス
@@ -127,14 +130,14 @@ scripts/                                    →    /run/initramfs/live/scripts/
 > `make-rocky-bootable/plugins/` 配下はビルド時に動的に生成され、ビルド完了後は自動クリーンアップされます。
 > `users/` はユーザーが自由にファイルを配置できるディレクトリです（スタートアップスクリプトから参照するファイルの置き場として利用できます）。
 
-スタートアップスクリプトは各プラグインの `ISO_DIR/` として管理されています。
+標準で組み込まれているスタートアップスクリプト (`firstboot-root-startup`, `add-user`) は各プラグインの `ISO_DIR/` 以下に配置されています。
 
 ```
 plugins/features/post/firstboot-root-startup/ISO_DIR/startup-root.sh   # root用テンプレート
 plugins/features/post/add-user/ISO_DIR/startup-user.sh                 # ユーザー用テンプレート
 ```
 
-### startup-root.sh
+### firstboot-root-startupプラグイン (startup-root.sh)
 
 **初回起動時に root で1回だけ自動実行されます。**
 
@@ -147,7 +150,7 @@ systemd サービス (`firstboot-root-startup.service`) 経由で実行されま
 ログ出力先:    /var/log/make-rocky-bootable/firstboot-root-startup.log
 ```
 
-### startup-user.sh
+### add-userプラグイン (startup-user.sh)
 
 **一般ユーザーの初回ログイン時に1回だけ自動実行されます。**
 
