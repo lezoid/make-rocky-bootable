@@ -1,9 +1,12 @@
 # make-rocky-bootable
 
 An interactive tool for easily creating custom bootable ISO images. :)
+
 You can create Live images that include a GUI and your own scripts.
 
-![screenshot](README/res/screenshot0.png)
+<p align="center">
+  <img src="README/res/screenshot0.png" width="50%">
+</p>
 
 ## Languages
 - [English](README.md)
@@ -23,14 +26,17 @@ You can create Live images that include a GUI and your own scripts.
 
 `make-rocky-bootable` is a bootable ISO builder for Rocky Linux using a plugin-based system.
 Plugins let you customize the bootable ISO with features such as GUI support, RDP enablement, and embedded startup scripts.
-Even without Kickstart knowledge, you can generate a custom ISO by simply selecting the OS version, plugin features, and boot mode through the interactive TUI.
 
-Plugins also support full-screen browser environments (kiosk mode).
-It can be used to replace Windows-based terminals that simply display a specific web page in full-screen mode with a Rocky Linux based environment.
+For example, with the `kiosk-browser` plugin, you can build a LiveCD that only displays a specific web page in a full-screen browser environment (kiosk mode).
+When building POS-style or embedded terminals that only need to show a web page full-screen, this is often implemented with a Windows-based environment at non-trivial cost.
+This plugin makes that kind of setup much easier and cheaper to build.
+Because it is LiveCD-based, recovery can be done by rebooting, and no HDD is required, which can also reduce operational cost significantly.
 
-![kiosk-browser screenshot](README/res/screenshot1.png)
+<p align="center">
+  <img src="README/res/screenshot1.png" width="50%">
+</p>
 
-**Supported OS versions:**
+## Supported build OS versions
 
 | OS | GUI |
 |----|-----|
