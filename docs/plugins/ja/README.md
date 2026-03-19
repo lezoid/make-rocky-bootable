@@ -22,6 +22,7 @@ make-rocky-bootable のプラグインは `plugins/` ディレクトリに配置
 | プラグイン名 | 概要 | 対応OS | デフォルト | 依存 | 詳細 |
 |------------|------|--------|-----------|------|------|
 | language-japanese-support | 日本語ロケール・キーボード・タイムゾーン設定 | 全OS | — | — | [→](language-japanese-support.md) |
+| dnf-update | `%post` で dnf 設定調整後に `dnf -y update` を実行 | Rocky 8, 9, 10 | — | — | [→](dnf-update.md) |
 | add-user | 一般ユーザーの作成 + root SSH ログイン無効化 (任意) + startup-user.sh / startup-user-network.sh を初回ログイン時に実行 (任意) | 全OS | — | — | [→](add-user.md) |
 | add-xfce-gui-support | XFCE デスクトップ + XRDP | Rocky 8, 9 | — | — | [→](add-xfce-gui-support.md) |
 | xfce-autologin | XFCE デスクトップで指定ユーザーの自動ログインを設定する | Rocky 8, 9 | — | add-xfce-gui-support | [→](xfce-autologin.md) |
