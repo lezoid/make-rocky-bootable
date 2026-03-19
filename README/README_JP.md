@@ -25,6 +25,11 @@ GUIや自前のスクリプトを含むLiveイメージの作成が可能です�
 プラグインでブータブルISOのカスタマイズを実現しており、例えばGUIの導入やRDPの有効化やスタートアップスクリプトの組み込みをサポートしています。
 kickstartの知識がなくても、手軽に対話形式のTUIでOSバージョン・プラグイン機能・ブートモードを選択するだけで、カスタムISOを自動生成します。
 
+プラグインにより、全画面ブラウザ環境（kioskモード）にも対応しています。
+Windows ベースで特定の Web ページを全画面表示する用途の端末を、Rocky Linux ベースの環境へ置き換えることも可能です。
+
+![kiosk-browser screenshot](res/screenshot1.png)
+
 **対応OSバージョン:**
 
 | OS | GUI |
@@ -100,6 +105,7 @@ make-rocky-bootable では、プラグイン機能を通じて、LiveCD の機�
 | add-xfce-gui-support | XFCE デスクトップ + XRDP | Rocky 8, 9 | — | — | [→](../docs/plugins/ja/add-xfce-gui-support.md) |
 | xfce-autologin | XFCE デスクトップで指定ユーザーの自動ログインを設定する | Rocky 8, 9 | — | add-xfce-gui-support | [→](../docs/plugins/ja/xfce-autologin.md) |
 | add-kde-gui-support | KDE Plasma デスクトップ + krdp (RDP) | Rocky 10 ⚠️ | — | add-user | [→](../docs/plugins/ja/add-kde-gui-support.md) |
+| kiosk-browser | OSごとの hardening を含む kiosk ブラウザ環境を構築・設定する | Rocky 8, 9, 10 | — | add-user, add-xfce-gui-support または add-kde-gui-support | [→](../docs/plugins/ja/kiosk-browser.md) |
 | firstboot-root-startup | 初回起動時に startup-root.sh (通常) および/または startup-root-network.sh (ネットワーク待機) を root で実行 | 全OS | — | — | [→](../docs/plugins/ja/firstboot-root-startup.md) |
 | default-sysprep | システムクリーンアップ (sysprep) | 全OS | ✓ | — | [→](../docs/plugins/ja/default-sysprep.md) |
 
