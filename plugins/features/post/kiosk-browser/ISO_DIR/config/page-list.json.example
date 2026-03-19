@@ -1,0 +1,12 @@
+{
+  "default_duration_sec": 60,
+  "pages": [
+    {
+      "url": "https://www.google.com",
+      "duration_sec": 10
+    },
+    {
+      "url": "https://www.google.com/search?q=rocky+linux"
+    }
+  ]
+}

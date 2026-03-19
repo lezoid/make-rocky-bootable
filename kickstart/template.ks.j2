@@ -1,0 +1,639 @@
+#version=RHEL9 {{ 'UEFI' if uefi else 'MBR' }}{% if gui %} with GUI{% endif %}
+# System language
+{% if gui %}
+lang ja_JP.UTF-8
+{% else %}
+lang en_US.UTF-8
+{% endif %}
+
+# Keyboard layout
+keyboard jp
+
+# Timezone settings
+timezone Asia/Tokyo --utc
+
+# root user plain text password settings
+rootpw --plaintext {{ root_password }}
+
+# Network settings
+network --bootproto=dhcp --device=link --activate
+
+# Disable SELinux
+selinux --permissive
+
+{% if version <= 9 %}
+# Authentication information
+auth --useshadow --passalgo=sha512
+{% endif %}
+
+# Disk partitioning
+{% if uefi %}
+bootloader --location=none
+clearpart --all --initlabel
+reqpart
+part / --size=6656 --grow
+{% else %}
+clearpart --all --initlabel
+part / --fstype="xfs" --grow --size=8192
+bootloader --location=mbr
+{% endif %}
+
+# Package selection
+%packages
+## --Required LiveBoot Packages ---
+dracut-live
+memtest86+
+syslinux
+*-logos
+firewalld
+{% if uefi %}
+# Add UEFI Support
+shim
+grub2
+grub2-efi
+grub2-efi-*-cdboot
+efibootmgr
+{% endif %}
+## ---------Add Packages-----------
+vi
+bash-completion
+{% if gui %}
+langpacks-ja
+glibc-langpack-ja
+{% endif %}
+## -------Remove Packages----------
+-iwl*-firmware
+%end
+
+# Post script: Configure services and system settings inside the guest
+%post --log=/root/ks-post.log
+
+# Log disk usage at start of post script
+df -h
+
+# Configure dnf: fastestmirror + timeout settings
+cat << 'EOF' >> /etc/dnf/dnf.conf
+fastestmirror=True
+minrate=5000
+timeout=30
+retries=3
+EOF
+
+{% if gui %}
+
+##############################################################
+###                       Desktop Config                   ###
+##############################################################
+## Setting Desktop Users (Administrator)
+#useradd Administrator
+#usermod -aG wheel Administrator
+
+## Set Administrator password
+#echo "Administrator:password" | chpasswd
+#Encrypt Version
+#echo "Administrator:PASSWORD_HASH" | chpasswd --encrypted
+
+{% if version >= 10 %}
+##############################################################
+###                  Rocky 10: KDE Plasma                  ###
+##############################################################
+# Enable EPEL repository
+dnf -y install epel-release
+
+# Enable CRB repository
+dnf config-manager --set-enabled crb
+dnf clean all
+
+# Install KDE Plasma Workspaces
+dnf -y groupinstall "KDE Plasma Workspaces"
+
+# Install additional packages
+dnf -y install firefox
+
+# Enable SDDM display manager
+systemctl enable sddm
+
+# Set graphical target as default
+systemctl set-default graphical
+
+# Enable firewalld and open RDP port
+systemctl enable firewalld
+firewall-offline-cmd --add-port=3389/tcp
+
+# Add Flatpak flathub repository
+flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+# Install Fcitx5 + Mozc via Flatpak
+flatpak install -y flathub org.fcitx.Fcitx5 org.fcitx.Fcitx5.Addon.Mozc
+
+# Install RPM Fusion and ffmpeg for H264 RDP encoding
+dnf install -y --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-10.noarch.rpm
+dnf install -y --allowerasing ffmpeg
+
+# /etc/skel/ directory structure for KDE + Fcitx5 + RDP
+mkdir -p /etc/skel/.config/plasma-workspace/env
+mkdir -p /etc/skel/.config/kdedefaults
+mkdir -p /etc/skel/.config/systemd/user/plasma-workspace.target.wants
+mkdir -p /etc/skel/.config/systemd/user/app-org.kde.krdpserver.service.d
+mkdir -p /etc/skel/.config/autostart
+mkdir -p /etc/skel/.var/app/org.fcitx.Fcitx5/config/fcitx5/conf
+mkdir -p /etc/skel/.local/share/krdpserver
+mkdir -p /etc/skel/.local/share/flatpak/db
+mkdir -p '/etc/skel/Desktop' '/etc/skel/デスクトップ'
+
+# KWin: set Fcitx5 as input method
+cat > /etc/skel/.config/kwinrc << 'KWINRC_EOF'
+[Wayland]
+InputMethod=/var/lib/flatpak/exports/share/applications/org.fcitx.Fcitx5.desktop
+KWINRC_EOF
+
+# Fcitx5 environment variables
+cat > /etc/skel/.config/plasma-workspace/env/fcitx5.sh << 'FCITX5ENV_EOF'
+#!/bin/sh
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+FCITX5ENV_EOF
+chmod +x /etc/skel/.config/plasma-workspace/env/fcitx5.sh
+
+# Fcitx5 profile: Mozc as default input method
+cat > /etc/skel/.var/app/org.fcitx.Fcitx5/config/fcitx5/profile << 'FCITX5PROFILE_EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=mozc
+
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+
+[Groups/0/Items/1]
+Name=mozc
+Layout=
+
+[GroupOrder]
+0=Default
+FCITX5PROFILE_EOF
+
+# Hide KDE welcome center
+cat > /etc/skel/.config/plasma-welcomerc << 'PLASMAWELCOME_EOF'
+[General]
+LastSeenVersion=999.999.999
+PLASMAWELCOME_EOF
+
+# Hide Fcitx5 Wayland diagnostic popup
+cat > /etc/skel/.var/app/org.fcitx.Fcitx5/config/fcitx5/conf/notifications.conf << 'FCITX5NOTIFY_EOF'
+[HiddenNotifications]
+0=wayland-diagnose-kde
+FCITX5NOTIFY_EOF
+
+# Breeze Dark theme (kdedefaults)
+cat > /etc/skel/.config/kdedefaults/kdeglobals << 'KDEDEFAULTSGLOBAL_EOF'
+[General]
+ColorScheme=BreezeDark
+
+[Icons]
+Theme=breeze-dark
+
+[KDE]
+widgetStyle=Breeze
+KDEDEFAULTSGLOBAL_EOF
+
+cat > /etc/skel/.config/kdedefaults/ksplashrc << 'KSPLASHRC_EOF'
+[KSplash]
+Engine=KSplashQML
+Theme=org.kde.breezedark.desktop
+KSPLASHRC_EOF
+
+printf 'org.kde.breezedark.desktop\n' > /etc/skel/.config/kdedefaults/package
+
+# Breeze Dark full color scheme
+cat > /etc/skel/.config/kdeglobals << 'KDEGLOBALS_EOF'
+[ColorEffects:Disabled]
+ChangeSelectionColor=
+Color=56,56,56
+ColorAmount=0
+ColorEffect=0
+ContrastAmount=0.65
+ContrastEffect=1
+Enable=
+IntensityAmount=0.1
+IntensityEffect=2
+
+[ColorEffects:Inactive]
+ChangeSelectionColor=true
+Color=112,111,110
+ColorAmount=0.025
+ColorEffect=2
+ContrastAmount=0.1
+ContrastEffect=2
+Enable=false
+IntensityAmount=0
+IntensityEffect=0
+
+[Colors:Button]
+BackgroundAlternate=30,87,116
+BackgroundNormal=41,44,48
+DecorationFocus=61,174,233
+DecorationHover=61,174,233
+ForegroundActive=61,174,233
+ForegroundInactive=161,169,177
+ForegroundLink=29,153,243
+ForegroundNegative=218,68,83
+ForegroundNeutral=246,116,0
+ForegroundNormal=252,252,252
+ForegroundPositive=39,174,96
+ForegroundVisited=155,89,182
+
+[Colors:Complementary]
+BackgroundAlternate=30,87,116
+BackgroundNormal=32,35,38
+DecorationFocus=61,174,233
+DecorationHover=61,174,233
+ForegroundActive=61,174,233
+ForegroundInactive=161,169,177
+ForegroundLink=29,153,243
+ForegroundNegative=218,68,83
+ForegroundNeutral=246,116,0
+ForegroundNormal=252,252,252
+ForegroundPositive=39,174,96
+ForegroundVisited=155,89,182
+
+[Colors:Header]
+BackgroundAlternate=32,35,38
+BackgroundNormal=41,44,48
+DecorationFocus=61,174,233
+DecorationHover=61,174,233
+ForegroundActive=61,174,233
+ForegroundInactive=161,169,177
+ForegroundLink=29,153,243
+ForegroundNegative=218,68,83
+ForegroundNeutral=246,116,0
+ForegroundNormal=252,252,252
+ForegroundPositive=39,174,96
+ForegroundVisited=155,89,182
+
+[Colors:Header][Inactive]
+BackgroundAlternate=41,44,48
+BackgroundNormal=32,35,38
+DecorationFocus=61,174,233
+DecorationHover=61,174,233
+ForegroundActive=61,174,233
+ForegroundInactive=161,169,177
+ForegroundLink=29,153,243
+ForegroundNegative=218,68,83
+ForegroundNeutral=246,116,0
+ForegroundNormal=252,252,252
+ForegroundPositive=39,174,96
+ForegroundVisited=155,89,182
+
+[Colors:Selection]
+BackgroundAlternate=30,87,116
+BackgroundNormal=61,174,233
+DecorationFocus=61,174,233
+DecorationHover=61,174,233
+ForegroundActive=252,252,252
+ForegroundInactive=161,169,177
+ForegroundLink=253,188,75
+ForegroundNegative=176,55,69
+ForegroundNeutral=198,92,0
+ForegroundNormal=252,252,252
+ForegroundPositive=23,104,57
+ForegroundVisited=155,89,182
+
+[Colors:Tooltip]
+BackgroundAlternate=32,35,38
+BackgroundNormal=41,44,48
+DecorationFocus=61,174,233
+DecorationHover=61,174,233
+ForegroundActive=61,174,233
+ForegroundInactive=161,169,177
+ForegroundLink=29,153,243
+ForegroundNegative=218,68,83
+ForegroundNeutral=246,116,0
+ForegroundNormal=252,252,252
+ForegroundPositive=39,174,96
+ForegroundVisited=155,89,182
+
+[Colors:View]
+BackgroundAlternate=29,31,34
+BackgroundNormal=20,22,24
+DecorationFocus=61,174,233
+DecorationHover=61,174,233
+ForegroundActive=61,174,233
+ForegroundInactive=161,169,177
+ForegroundLink=29,153,243
+ForegroundNegative=218,68,83
+ForegroundNeutral=246,116,0
+ForegroundNormal=252,252,252
+ForegroundPositive=39,174,96
+ForegroundVisited=155,89,182
+
+[Colors:Window]
+BackgroundAlternate=41,44,48
+BackgroundNormal=32,35,38
+DecorationFocus=61,174,233
+DecorationHover=61,174,233
+ForegroundActive=61,174,233
+ForegroundInactive=161,169,177
+ForegroundLink=29,153,243
+ForegroundNegative=218,68,83
+ForegroundNeutral=246,116,0
+ForegroundNormal=252,252,252
+ForegroundPositive=39,174,96
+ForegroundVisited=155,89,182
+
+[General]
+ColorSchemeHash=9f63c7711a13123582e720791ea0f8c0172977d2
+
+[KDE]
+LookAndFeelPackage=org.kde.breezedark.desktop
+
+[WM]
+activeBackground=39,44,49
+activeBlend=252,252,252
+activeForeground=252,252,252
+inactiveBackground=32,36,40
+inactiveBlend=161,169,177
+inactiveForeground=161,169,177
+KDEGLOBALS_EOF
+
+# Power management: disable screen dim/off and screen lock
+cat > /etc/skel/.config/powerdevilrc << 'POWERDEVIL_EOF'
+[AC][Display]
+DimDisplayIdleTimeoutSec=-1
+DimDisplayWhenIdle=false
+TurnOffDisplayIdleTimeoutSec=-1
+TurnOffDisplayWhenIdle=false
+POWERDEVIL_EOF
+
+cat > /etc/skel/.config/kscreenlockerrc << 'KSCREENLOCKER_EOF'
+[Daemon]
+Autolock=false
+LockOnResume=false
+Timeout=0
+KSCREENLOCKER_EOF
+
+{% if extra_user %}
+# RDP server configuration (user-specific paths)
+cat > /etc/skel/.config/krdpserverrc << 'KRDPSERVERRC_EOF'
+[General]
+Autostart=true
+Certificate=/home/{{ extra_user.name }}/.local/share/krdpserver/krdp.crt
+CertificateKey=/home/{{ extra_user.name }}/.local/share/krdpserver/krdp.key
+Users={{ extra_user.name }}
+KRDPSERVERRC_EOF
+
+# Generate TLS certificate for krdpserver
+openssl req -x509 -newkey rsa:2048 \
+  -keyout /etc/skel/.local/share/krdpserver/krdp.key \
+  -out /etc/skel/.local/share/krdpserver/krdp.crt \
+  -days 3650 -nodes -subj '/CN=make-rocky-bootable' 2>/dev/null
+chmod 600 /etc/skel/.local/share/krdpserver/krdp.key
+
+# krdpserver systemd autostart symlinks
+ln -sf /usr/lib/systemd/user/app-org.kde.krdpserver.service \
+  /etc/skel/.config/systemd/user/plasma-krdp_server.service
+ln -sf /usr/lib/systemd/user/app-org.kde.krdpserver.service \
+  /etc/skel/.config/systemd/user/plasma-workspace.target.wants/app-org.kde.krdpserver.service
+
+# krdpserver systemd override: username = RDP password
+cat > /etc/skel/.config/systemd/user/app-org.kde.krdpserver.service.d/override.conf << 'KRDPOVERRIDE_EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/krdpserver -u %u -p %u
+KRDPOVERRIDE_EOF
+
+# sudoers: allow wheel group to restart SDDM without password
+cat > /etc/sudoers.d/sddm-restart << 'SDDMSUDOERS_EOF'
+%wheel ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart sddm
+SDDMSUDOERS_EOF
+chmod 440 /etc/sudoers.d/sddm-restart
+
+# Desktop shortcuts
+cat > '/etc/skel/Desktop/Restart RDP.desktop' << 'RDPDESKTOP_EOF'
+[Desktop Entry]
+Type=Application
+Name=RDP サーバー再起動
+Name[en]=Restart RDP Server
+Exec=systemctl --user restart app-org.kde.krdpserver.service
+Icon=network-server
+Terminal=false
+RDPDESKTOP_EOF
+
+cat > '/etc/skel/Desktop/Restart KDE.desktop' << 'KDEDESKTOP_EOF'
+[Desktop Entry]
+Type=Application
+Name=KDE セッション再起動
+Name[en]=Restart KDE Session
+Exec=sudo systemctl restart sddm
+Icon=system-reboot
+Terminal=false
+KDEDESKTOP_EOF
+
+for f in 'Restart RDP.desktop' 'Restart KDE.desktop'; do
+    chmod +x "/etc/skel/Desktop/$f"
+    cp "/etc/skel/Desktop/$f" "/etc/skel/デスクトップ/$f"
+    chmod +x "/etc/skel/デスクトップ/$f"
+done
+
+# SDDM autologin
+mkdir -p /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/autologin.conf << 'SDDMAUTOLOGIN_EOF'
+[Autologin]
+User={{ extra_user.name }}
+Session=plasma
+SDDMAUTOLOGIN_EOF
+{% endif %}
+
+# XDP portal permission: autostart script (runs once at first KDE login, then removes itself)
+cat > /usr/local/bin/setup-krdp-permission.sh << 'XDPSCRIPT_EOF'
+#!/bin/bash
+gdbus call \
+  --session \
+  --dest org.freedesktop.impl.portal.PermissionStore \
+  --object-path /org/freedesktop/impl/portal/PermissionStore \
+  --method org.freedesktop.impl.portal.PermissionStore.Set \
+  'kde-authorized' true 'remote-desktop' "{'org.kde.krdpserver': ['yes']}" "<''>" && \
+  rm -f "$HOME/.config/autostart/setup-krdp-permission.desktop"
+XDPSCRIPT_EOF
+chmod +x /usr/local/bin/setup-krdp-permission.sh
+
+cat > /etc/skel/.config/autostart/setup-krdp-permission.desktop << 'XDPAUTOSTART_EOF'
+[Desktop Entry]
+Type=Application
+Name=Setup KRDP Permission
+Exec=/usr/local/bin/setup-krdp-permission.sh
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+XDPAUTOSTART_EOF
+
+{% else %}
+##############################################################
+###              Rocky 7/8/9: XFCE + XRDP                 ###
+##############################################################
+## Add GUI Packages
+# Enable EPEL repository
+dnf -y install epel-release
+
+# Install additional packages from EPEL
+dnf -y install langpacks-ja glibc-langpack-ja ibus-mozc firefox chromium xrdp
+
+# Install XFCE desktop environment
+dnf -y groupinstall "xfce"
+
+## gdm autologin enable
+#sed -i '1i auth sufficient pam_succeed_if.so user ingroup nopasswdlogin' /etc/pam.d/gdm-password
+#groupadd nopasswdlogin
+#usermod -aG nopasswdlogin Administrator
+
+## gdm autologin setting
+#bash -c 'cat <<EOL > /etc/gdm/custom.conf
+## GDM configuration storage
+#
+#[daemon]
+#AutomaticLogin=Administrator
+#AutomaticLoginEnable=True
+# Uncomment the line below to force the login screen to use Xorg
+#WaylandEnable=false
+#
+#[security]
+#
+#[xdmcp]
+#
+#[chooser]
+#
+#[debug]
+# Uncomment the line below to turn on debugging
+#Enable=true
+#EOL'
+
+## create xinit files for skel, root
+for path in /etc/skel /root; do
+    echo "exec /usr/bin/xfce4-session" > $path/.Xclients
+    echo "exec /usr/bin/xfce4-session" > $path/.xinitrc
+    chmod +x $path/.Xclients
+    chmod +x $path/.xinitrc
+done
+
+## gdm default session for xfce with correct Icon paths
+for account in root; do
+    icon_path="/home/$account/.face"
+    [[ "$account" == "root" ]] && icon_path="/root/.face"
+
+    sudo bash -c "cat <<EOL > /etc/accountsservice/user-templates/$account
+# This file contains defaults for new users. To edit, first
+# copy it to /etc/accountsservice/user-templates and make changes
+# there
+
+[com.redhat.AccountsServiceUser.System]
+id=\"rocky\"
+version-id=\"9.4\"
+
+[User]
+Session=xfce
+Icon=$icon_path
+SystemAccount=true
+EOL"
+done
+
+## gdm session settings for root and Users
+for useraccount in root; do
+    sudo bash -c "cat <<EOL > /var/lib/AccountsService/users/$useraccount
+[User]
+XSession=xfce
+EOL"
+done
+
+## Ibus setting
+for user in root; do
+    bashrc_path="/home/$user/.bashrc"
+    [[ "$user" == "root" ]] && bashrc_path="/root/.bashrc"
+
+    cat <<EOL >> $bashrc_path
+
+# IBus settings for input method
+export GTK_IM_MODULE=ibus
+export XMODIFIERS=@im=ibus
+export QT_IM_MODULE=ibus
+EOL
+done
+
+# Set graphical target as default
+systemctl set-default graphical
+
+# Enable and start xrdp
+systemctl enable xrdp --now
+
+# Open port 3389 for XRDP (TCP)
+systemctl enable firewalld
+systemctl start firewalld
+firewall-offline-cmd --add-port=3389/tcp
+{% endif %}
+
+##############################################################
+###                      End Desktop Config                ###
+##############################################################
+
+{% endif %}
+{% if extra_user %}
+# Create general user
+useradd {{ extra_user.name }}
+echo "{{ extra_user.name }}:{{ extra_user.password }}" | chpasswd
+{% if extra_user.sudoer %}
+usermod -aG wheel {{ extra_user.name }}
+{% endif %}
+{% endif %}
+
+{% if extra_user and extra_user.disable_root_ssh %}
+# Disable root SSH login
+sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+{% else %}
+# Allow SSH login as root
+sed -i 's/#PermitRootLogin yes/PermitRootLogin yes/' /etc/ssh/sshd_config
+sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+{% endif %}
+systemctl restart sshd
+{% if not gui %}
+
+# Enable firewalld
+systemctl enable firewalld
+systemctl start firewalld
+{% endif %}
+
+# Create a systemd service for running the startup script once at boot
+cat << EOF > /etc/systemd/system/firstboot-startup.service
+[Unit]
+Description=Run startup.sh script on first boot
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -x /run/initramfs/live/scripts/startup.sh
+ExecStartPost=/bin/rm -f /etc/systemd/system/firstboot-startup.service
+StandardOutput=append:/var/log/firstboot-startup.log
+StandardError=append:/var/log/firstboot-startup.log
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable the firstboot service
+systemctl enable firstboot-startup.service
+
+# Cleanup operations
+rm -f /core*
+rm -f /var/lib/rpm/__db*
+rm -f /var/lib/systemd/random-seed
+rm -f /etc/machine-id
+touch /etc/machine-id
+# Log disk usage at end of post script
+df -h
+
+{% if not debug %}
+rm -f /root/anaconda-ks.cfg /root/ks-post.log /root/original-ks.cfg
+{% endif %}
+
+%end
+shutdown

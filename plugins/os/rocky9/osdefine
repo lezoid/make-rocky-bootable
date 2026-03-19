@@ -1,0 +1,6 @@
+[os]
+id = rocky9
+display_name = Rocky Linux 9
+iso_name_prefix = Rocky-9
+iso_url = https://ftp.iij.ad.jp/pub/linux/rocky/9/isos/x86_64/Rocky-9-latest-x86_64-dvd.iso
+checksum_url = https://ftp.iij.ad.jp/pub/linux/rocky/9/isos/x86_64/Rocky-9-latest-x86_64-dvd.iso.CHECKSUM

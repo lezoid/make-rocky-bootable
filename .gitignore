@@ -2,8 +2,18 @@
 build-iso/*
 logs/*
 tmp/*
+isos/*
+tmpl/live/config_files/scripts/make-rocky-bootable/plugins/*
+tmpl/live/config_files/scripts/users/*
+__pycache__/
 
 # But keep the directories themselves
+!build-iso/.gitkeep
+!isos/.gitkeep
 !logs/.gitkeep
 !tmp/.gitkeep
+!tmpl/live/config_files/scripts/make-rocky-bootable/plugins/.gitkeep
+!tmpl/live/config_files/scripts/users/.gitkeep
 
+
+AGENTS.md

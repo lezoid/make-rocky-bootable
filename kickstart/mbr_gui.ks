@@ -37,6 +37,7 @@ syslinux
 firewalld
 ## ---------Add Packages-----------
 vi
+bash-completion
 langpacks-ja
 glibc-langpack-ja
 %end
@@ -153,8 +154,7 @@ systemctl enable xrdp --now
 # Open port 3389 for XRDP (TCP)
 systemctl enable firewalld
 systemctl start firewalld
-firewall-cmd --permanent --add-port=3389/tcp
-firewall-cmd --reload
+firewall-offline-cmd --add-port=3389/tcp
 
 ##############################################################
 ###                      End Desktop Config                ###

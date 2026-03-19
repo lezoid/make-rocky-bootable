@@ -41,7 +41,12 @@ install ${configdir}/isolinux.cfg ${BOOTDIR}
 install ${configdir}/boot.msg ${BOOTDIR}
 install ${configdir}/grub.conf ${BOOTDIR}
 install usr/share/anaconda/boot/syslinux-splash.png ${BOOTDIR}/splash.png
+%if exists("boot/memtest86+*") or exists("boot/memtest86*"):
 install boot/memtest* ${BOOTDIR}/memtest
+replace "@MEMTEST_ISOLINUX_ENTRY@" "label memtest\n  menu label Run a ^memory test (memtest86+)\n  text help\n\tIf your system is having issues, a problem with your\n\tsystem's memory may be the cause. Use this utility to\n\tsee if the memory is working correctly.\n  endtext\n  kernel memtest" ${BOOTDIR}/isolinux.cfg
+%else:
+replace "@MEMTEST_ISOLINUX_ENTRY@" "" ${BOOTDIR}/isolinux.cfg
+%endif
 
 ## configure bootloader
 replace @VERSION@ ${product.version} ${BOOTDIR}/grub.conf ${BOOTDIR}/isolinux.cfg ${BOOTDIR}/*.msg
@@ -70,7 +75,7 @@ hardlink ${KERNELDIR}/initrd.img ${BOOTDIR}
 
 ## WHeeeeeeee, EFI.
 <% efiargs=""; efigraft=""; efiarch32=None; efiarch64=None %>
-%if exists("boot/efi/EFI/*/gcdia32.efi"):
+%if exists("boot/efi/EFI/*/gcdia32.efi") and exists("boot/efi/EFI/*/shimia32.efi"):
     <% efiarch32 = 'IA32' %>
 %endif
 %if exists("boot/efi/EFI/*/gcdx64.efi"):
@@ -122,8 +127,10 @@ hardlink ${KERNELDIR}/initrd.img ${BOOTDIR}
 # Add the /opt/scripts directory to the live system
 <% optgraft = "" %>
 %if exists(scriptdir):
-    mkdir -p scripts
-    install ${scriptdir}/* /scripts
+##    mkdir -p scripts
+##    install ${scriptdir}/* /scripts
+    runcmd mkdir -p ${outroot}/scripts
+    runcmd cp -r ${inroot}/${scriptdir}/. ${outroot}/scripts/
     <% optgraft += " /scripts={0}/scripts".format(outroot) %>
 %endif
 

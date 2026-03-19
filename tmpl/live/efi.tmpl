@@ -17,7 +17,14 @@ install boot/efi/EFI/*/shim${efiarch32|lower}.efi ${EFIBOOTDIR}/BOOT${efiarch32}
 install boot/efi/EFI/*/mm${efiarch32|lower}.efi ${EFIBOOTDIR}/
 install boot/efi/EFI/*/gcd${efiarch32|lower}.efi ${EFIBOOTDIR}/grub${efiarch32|lower}.efi
 %endif
+%if exists("usr/lib64/memtest86+/memtest86+x64.efi"):
+install usr/lib64/memtest86+/memtest86+x64.efi ${EFIBOOTDIR}/memtest86+x64.efi
+%endif
+%if exists("boot/grub2/fonts/unicode.pf2"):
 install boot/grub2/fonts/unicode.pf2 ${EFIBOOTDIR}/fonts/
+%elif exists("usr/share/grub/unicode.pf2"):
+install usr/share/grub/unicode.pf2 ${EFIBOOTDIR}/fonts/
+%endif
 
 ## actually make the EFI images
 ${make_efiboot("images/efiboot.img")}
@@ -46,6 +53,11 @@ ${make_efiboot("images/efiboot.img")}
     replace @INITRDPATH@ /${kdir}/initrd.img ${eficonf}
     replace @ISOLABEL@ '${isolabel}' ${eficonf}
     replace @EXTRA@ '${extra_boot_args}' ${eficonf}
+    %if exists("usr/lib64/memtest86+/memtest86+x64.efi"):
+        replace "@MEMTEST_GRUB_ENTRY@" "menuentry 'Run a memory test (memtest86+)' --class memtest86 {\n\tchainloader /EFI/BOOT/memtest86+x64.efi\n}" ${eficonf}
+    %else:
+        replace "@MEMTEST_GRUB_ENTRY@" "" ${eficonf}
+    %endif
     %if disk:
         replace @ROOT@ root=live:LABEL=ANACONDA ${eficonf}
     %else:

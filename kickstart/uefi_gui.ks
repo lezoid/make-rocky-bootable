@@ -44,8 +44,6 @@ efibootmgr
 ## ---------Add Packages-----------
 vi
 bash-completion
-langpacks-ja
-glibc-langpack-ja
 %end
 
 # Post script: Configure services and system settings inside the guest
@@ -138,7 +136,7 @@ EOL"
 done
 
 ## Ibus setting
-for user in root Administrator; do
+for user in root; do
     bashrc_path="/home/$user/.bashrc"
     [[ "$user" == "root" ]] && bashrc_path="/root/.bashrc"
     
@@ -159,6 +157,7 @@ systemctl enable xrdp --now
 
 # Open port 3389 for XRDP (TCP)
 systemctl enable firewalld
+systemctl start firewalld
 firewall-offline-cmd --add-port=3389/tcp
 
 ##############################################################
