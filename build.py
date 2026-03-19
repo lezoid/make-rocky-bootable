@@ -45,9 +45,16 @@ _LANG_UI = {
         'select_os_title':          'ターゲットOSを選択:',
         'select_features_title':    'オプション機能を選択:',
         'select_boot_title':        'ブートモードを選択:',
+        'select_liveboot_title':    'デフォルト起動モードを選択:',
+        'liveboot_normal':          '通常起動',
+        'liveboot_normal_desc':     'ライブイメージから直接起動します',
+        'liveboot_ram':             'RAM展開起動',
+        'liveboot_ram_desc':        '起動前にイメージ全体をRAMに展開します。起動後にDVDを取り出せます。多くのメモリが必要です。',
+        'ok_liveboot':              '✓ デフォルト起動モード: {0}',
         'radio_hint':               '↑↓ 移動   Enter: 確定',
         'checkbox_hint':            '↑↓ 移動   Space: 切替   Enter: 確定',
         # Prompts
+        'boolean_default':          'デフォルト: {0}',
         'password_empty':           'パスワードを入力してください。',
         'password_confirm':         '{0}を確認: ',
         'password_mismatch':        'パスワードが一致しません。',
@@ -110,6 +117,7 @@ _LANG_UI = {
         'err_download':             'エラー: ダウンロードに失敗しました。',
         'err_checksum':             'エラー: チェックサムの検証に失敗しました。',
         'err_remove_dir':           'エラー: {0} の削除に失敗しました',
+        'err_remove_dir_hint':      'ヒント: {0} 配下にマウントが残っている可能性があります。"mount | grep {0}" で確認し、手動でアンマウントしてください。',
         'err_scripts_dir':          'エラー: scripts/ ディレクトリが見つかりません。',
         'err_livemedia':            'エラー: livemedia-creatorが失敗しました。',
         'warn_checksum_dl':         '警告: CHECKSUMファイルのダウンロードに失敗しました。スキップします。',
@@ -489,6 +497,16 @@ class Plugin:
             return []
         return [s.strip() for s in val.split(',')]
 
+    def requires_for_os(self, os_id: str) -> list:
+        result = list(self.requires)
+        os_specific = self.meta.get(f'requires.{os_id}', '').strip()
+        if os_specific:
+            for item in os_specific.split(','):
+                req = item.strip()
+                if req and req not in result:
+                    result.append(req)
+        return result
+
     def supports_os(self, os_id: str) -> bool:
         if self.supported_os is None:
             return True
@@ -614,7 +632,7 @@ class PluginEngine:
         ]
 
         dependencies = {
-            p.name: [req for req in p.requires if any(sp.name == req for sp in selectable)]
+            p.name: [req for req in p.requires_for_os(self.selected_os.id) if any(sp.name == req for sp in selectable)]
             for p in selectable
         }
 
@@ -640,7 +658,7 @@ class PluginEngine:
         while changed:
             changed = False
             for plugin in list(result):
-                for req in plugin.requires:
+                for req in plugin.requires_for_os(self.selected_os.id):
                     if req not in selected_names:
                         if req in plugin_map:
                             dep = plugin_map[req]
@@ -682,8 +700,9 @@ class PluginEngine:
                 print(f"      ※ {note}")
 
             if ptype == 'boolean':
-                default_yn = 'Y/n' if default.lower() == 'true' else 'y/N'
-                answer = input(f"    {label} ({default_yn}): ").strip().lower()
+                default_val = 'y' if default.lower() == 'true' else 'n'
+                default_label = _ui(self.lang, 'boolean_default', 'default: {0}').format(default_val)
+                answer = input(f"    {label} (y/n) [{default_label}]: ").strip().lower()
                 values[field] = (default.lower() == 'true') if answer == '' else (answer == 'y')
 
             elif ptype == 'password':
@@ -797,8 +816,8 @@ class PluginEngine:
         lines.append("selinux --permissive")
         lines.append("")
 
-        # auth (Rocky <= 9 only)
-        if os_version <= 9:
+        # auth (Rocky 7 and earlier only; removed in Rocky 8+)
+        if os_version < 8:
             lines.append("auth --useshadow --passalgo=sha512")
             lines.append("")
 
@@ -981,6 +1000,22 @@ class ISOBuilder2:
         print(_ui(lang, 'ok_bootmode', '✓ Boot mode: {0}').format(self.bootmode))
         print()
 
+        livemodes = [
+            {
+                'label':       _ui(lang, 'liveboot_normal', 'Normal Boot'),
+                'description': _ui(lang, 'liveboot_normal_desc', 'Boot directly from the live image'),
+            },
+            {
+                'label':       _ui(lang, 'liveboot_ram', 'Load to RAM'),
+                'description': _ui(lang, 'liveboot_ram_desc', 'Copy entire image to RAM before booting. DVD can be ejected after boot. Requires extra memory.'),
+            },
+        ]
+        title2 = _ui(lang, 'select_liveboot_title', 'Select default live boot mode:')
+        idx2 = tui_radio(livemodes, title=title2, hint=hint)
+        self.live_bootmode = ['normal', 'ram'][idx2]
+        print(_ui(lang, 'ok_liveboot', '✓ Default live boot mode: {0}').format(self.live_bootmode))
+        print()
+
     def input_root_password(self):
         lang = self.engine.lang
         print(_ui(lang, 'root_password_title', '[6/7] Set root password:'))
@@ -1080,6 +1115,7 @@ class ISOBuilder2:
                     result = subprocess.run(['sudo', 'rm', '-rf', str(item)])
                     if result.returncode != 0:
                         print(_ui(lang, 'err_remove_dir', 'Error: Failed to remove {0}').format(item))
+                        print(_ui(lang, 'err_remove_dir_hint', 'Hint: A filesystem may still be mounted under {0}. Please check with "mount | grep {0}" and unmount manually.').format(item))
                         sys.exit(1)
 
         print(_ui(lang, 'ok_dirs_cleaned', '✓ Directories cleaned'))
@@ -1165,6 +1201,29 @@ class ISOBuilder2:
             )
             extra_opts = ['--virt-uefi'] if is_uefi else []
             log_path = f'{self.script_dir}/logs/livemedia-creator.log'
+
+            # Copy tmpl to a temp dir and substitute @DEFAULTBOOT@ placeholders
+            tmpl_tmp = Path(tempfile.mkdtemp(prefix='tmpl-', dir=self.script_dir / 'tmp'))
+            shutil.copytree(self.script_dir / 'tmpl', tmpl_tmp / 'tmpl')
+            is_ram = getattr(self, 'live_bootmode', 'normal') == 'ram'
+            grub_idx  = '1' if is_ram else '0'
+            iso_normal = 'menu default' if not is_ram else ''
+            iso_ram    = 'menu default' if is_ram else ''
+            for cfg, replacements in [
+                (
+                    tmpl_tmp / 'tmpl/live/config_files/x86/grub2-efi.cfg',
+                    [('@DEFAULTBOOT_IDX@', grub_idx)],
+                ),
+                (
+                    tmpl_tmp / 'tmpl/live/config_files/x86/isolinux.cfg',
+                    [('@DEFAULTBOOT_NORMAL@', iso_normal), ('@DEFAULTBOOT_RAM@', iso_ram)],
+                ),
+            ]:
+                text = cfg.read_text()
+                for placeholder, value in replacements:
+                    text = text.replace(placeholder, value)
+                cfg.write_text(text)
+
             cmd = [
                 'sudo', 'livemedia-creator',
                 '--make-iso',
@@ -1178,13 +1237,15 @@ class ISOBuilder2:
                 f'--releasever={self.os_version}',
                 f'--tmp={self.script_dir}/tmp',
                 f'--image-size={image_size}',
-                f'--lorax-templates={self.script_dir}/tmpl',
+                f'--lorax-templates={tmpl_tmp}/tmpl',
             ] + extra_opts
 
             print(_ui(lang, 'running_livemedia', 'Running livemedia-creator (this may take a while)...'))
             print(_ui(lang, 'log_file', 'Log: {0}').format(log_path))
             print()
             result = subprocess.run(cmd)
+
+            shutil.rmtree(tmpl_tmp, ignore_errors=True)
 
             if result.returncode != 0:
                 print(_ui(lang, 'err_livemedia', 'Error: livemedia-creator failed.'))

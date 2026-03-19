@@ -76,6 +76,7 @@ ${if_enabled}echo "Feature enabled"${endif_enabled}
 | `order` | — | 適用順序（小さいほど先）。省略時は `999` |
 | `supported_os` | — | 対応OS IDをカンマ区切りで指定。省略時は全OS対応 |
 | `requires` | — | 依存プラグイン名。未選択でも自動追加される |
+| `requires.<os_id>` | — | OS別の依存プラグイン名。選択OSで `requires` と合わせて適用される |
 | `image_size` | — | 必要なISOイメージサイズ (MB)。複数プラグインの最大値が使用される |
 | `PLUGIN_ISO_DIR` | — | `true`: `ISO_DIR/` の中身を LiveCD の scripts 領域にコピー |
 

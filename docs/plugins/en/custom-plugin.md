@@ -76,6 +76,7 @@ ${if_enabled}echo "Feature enabled"${endif_enabled}
 | `order` | — | Application order (lower = earlier). Defaults to `999` |
 | `supported_os` | — | Comma-separated list of supported OS IDs. Omit for all OSes |
 | `requires` | — | Dependency plugin name. Auto-added if not selected |
+| `requires.<os_id>` | — | OS-specific dependency plugin name. Merged with `requires` for the selected OS |
 | `image_size` | — | Required ISO image size in MB. Largest value across plugins is used |
 | `PLUGIN_ISO_DIR` | — | `true`: copy `ISO_DIR/` contents into the LiveCD scripts area |
 

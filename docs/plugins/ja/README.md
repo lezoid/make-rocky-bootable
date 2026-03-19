@@ -22,10 +22,12 @@ make-rocky-bootable のプラグインは `plugins/` ディレクトリに配置
 | プラグイン名 | 概要 | 対応OS | デフォルト | 依存 | 詳細 |
 |------------|------|--------|-----------|------|------|
 | language-japanese-support | 日本語ロケール・キーボード・タイムゾーン設定 | 全OS | — | — | [→](language-japanese-support.md) |
-| add-user | 一般ユーザーの作成 + root SSH ログイン無効化 (任意) + startup-user.sh を一般ユーザーで初回実行 (任意) | 全OS | — | — | [→](add-user.md) |
+| add-user | 一般ユーザーの作成 + root SSH ログイン無効化 (任意) + startup-user.sh / startup-user-network.sh を初回ログイン時に実行 (任意) | 全OS | — | — | [→](add-user.md) |
 | add-xfce-gui-support | XFCE デスクトップ + XRDP | Rocky 8, 9 | — | — | [→](add-xfce-gui-support.md) |
+| xfce-autologin | XFCE デスクトップで指定ユーザーの自動ログインを設定する | Rocky 8, 9 | — | add-xfce-gui-support | [→](xfce-autologin.md) |
 | add-kde-gui-support | KDE Plasma デスクトップ + krdp (RDP) | Rocky 10 ⚠️ | — | add-user | [→](add-kde-gui-support.md) |
-| firstboot-root-startup | 初回起動時に startup-root.sh を root で実行 | 全OS | — | — | [→](firstboot-root-startup.md) |
+| kiosk-browser | kiosk ブラウザを build・導入し、OS ごとのデスクトップ抑止設定を行う | Rocky 8, 9, 10 | — | add-user, add-xfce-gui-support または add-kde-gui-support | [→](kiosk-browser.md) |
+| firstboot-root-startup | 初回起動時に startup-root.sh (通常) および/または startup-root-network.sh (ネットワーク待機) を root で実行 | 全OS | — | — | [→](firstboot-root-startup.md) |
 | default-sysprep | システムクリーンアップ (sysprep) | 全OS | ✓ | — | [→](default-sysprep.md) |
 
 ## 独自プラグインの作成
@@ -119,3 +121,16 @@ LiveCD起動後は **`/run/initramfs/live/scripts/make-rocky-bootable/plugins/{p
 |------|------|
 | `${変数名}` | 変数の値に置換 |
 | `${if_変数名}...${endif_変数名}` | 変数が真のときのみ出力 |
+
+### OS別依存
+
+`[meta]` では `requires` に加えて OS 別依存キーを指定できます。
+
+```ini
+[meta]
+requires = add-user
+requires.rocky9 = add-xfce-gui-support
+requires.rocky10 = add-kde-gui-support
+```
+
+選択OSが一致した場合、`requires.<os_id>` は `requires` と合わせて適用されます。

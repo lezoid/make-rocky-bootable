@@ -96,10 +96,11 @@ make-rocky-bootable では、プラグイン機能を通じて、LiveCD の機�
 | プラグイン名 | 概要 | 対応OS | デフォルト | 依存 | 詳細 |
 |------------|------|--------|-----------|------|------|
 | language-japanese-support | 日本語ロケール・キーボード・タイムゾーン設定 | 全OS | — | — | [→](../docs/plugins/ja/language-japanese-support.md) |
-| add-user | 一般ユーザーの作成 + root SSH ログイン無効化 (任意) + startup-user.sh を一般ユーザーで初回実行 (任意) | 全OS | — | — | [→](../docs/plugins/ja/add-user.md) |
+| add-user | 一般ユーザーの作成 + root SSH ログイン無効化 (任意) + startup-user.sh / startup-user-network.sh を初回ログイン時に実行 (任意) | 全OS | — | — | [→](../docs/plugins/ja/add-user.md) |
 | add-xfce-gui-support | XFCE デスクトップ + XRDP | Rocky 8, 9 | — | — | [→](../docs/plugins/ja/add-xfce-gui-support.md) |
+| xfce-autologin | XFCE デスクトップで指定ユーザーの自動ログインを設定する | Rocky 8, 9 | — | add-xfce-gui-support | [→](../docs/plugins/ja/xfce-autologin.md) |
 | add-kde-gui-support | KDE Plasma デスクトップ + krdp (RDP) | Rocky 10 ⚠️ | — | add-user | [→](../docs/plugins/ja/add-kde-gui-support.md) |
-| firstboot-root-startup | 初回起動時に startup-root.sh を root で実行 | 全OS | — | — | [→](../docs/plugins/ja/firstboot-root-startup.md) |
+| firstboot-root-startup | 初回起動時に startup-root.sh (通常) および/または startup-root-network.sh (ネットワーク待機) を root で実行 | 全OS | — | — | [→](../docs/plugins/ja/firstboot-root-startup.md) |
 | default-sysprep | システムクリーンアップ (sysprep) | 全OS | ✓ | — | [→](../docs/plugins/ja/default-sysprep.md) |
 
 常時適用プラグインを含む全プラグイン一覧、プラグインの仕組み、独自プラグインの作成方法については、プラグインドキュメントを参照してください。
@@ -121,9 +122,11 @@ scripts/                                    →    /run/initramfs/live/scripts/
 ├── make-rocky-bootable/
 │   └── plugins/                            →    /run/initramfs/live/scripts/make-rocky-bootable/plugins/
 │       ├── firstboot-root-startup/         →    （firstboot-root-startupプラグイン有効時）
-│       │   └── startup-root.sh            →    /run/initramfs/live/scripts/make-rocky-bootable/plugins/firstboot-root-startup/startup-root.sh
+│       │   ├── startup-root.sh            →    .../firstboot-root-startup/startup-root.sh
+│       │   └── startup-root-network.sh    →    .../firstboot-root-startup/startup-root-network.sh
 │       └── add-user/                       →    （add-userプラグイン有効時）
-│           └── startup-user.sh            →    /run/initramfs/live/scripts/make-rocky-bootable/plugins/add-user/startup-user.sh
+│           ├── startup-user.sh            →    .../add-user/startup-user.sh
+│           └── startup-user-network.sh    →    .../add-user/startup-user-network.sh
 └── users/                                  →    /run/initramfs/live/scripts/users/
 ```
 
@@ -133,34 +136,42 @@ scripts/                                    →    /run/initramfs/live/scripts/
 標準で組み込まれているスタートアップスクリプト (`firstboot-root-startup`, `add-user`) は各プラグインの `ISO_DIR/` 以下に配置されています。
 
 ```
-plugins/features/post/firstboot-root-startup/ISO_DIR/startup-root.sh   # root用テンプレート
-plugins/features/post/add-user/ISO_DIR/startup-user.sh                 # ユーザー用テンプレート
+plugins/features/post/firstboot-root-startup/ISO_DIR/startup-root.sh          # root用テンプレート（通常）
+plugins/features/post/firstboot-root-startup/ISO_DIR/startup-root-network.sh  # root用テンプレート（ネットワーク待機）
+plugins/features/post/add-user/ISO_DIR/startup-user.sh                        # ユーザー用テンプレート（通常）
+plugins/features/post/add-user/ISO_DIR/startup-user-network.sh                # ユーザー用テンプレート（ネットワーク待機）
 ```
 
-### firstboot-root-startupプラグイン (startup-root.sh)
+### firstboot-root-startupプラグイン
 
 **初回起動時に root で1回だけ自動実行されます。**
 
-`firstboot-root-startup` プラグインを有効化すると、
-systemd サービス (`firstboot-root-startup.service`) 経由で実行されます。
-実行後はサービスファイル自体が自動削除されるため、2回目以降の起動では実行されません。
+プラグイン設定で2種類のサービスを独立して有効化でき、両方同時に有効にすることも可能です。
+
+| バリアント | サービス名 | スクリプト | 実行タイミング |
+|-----------|-----------|-----------|--------------|
+| 通常 | `firstboot-root-startup.service` | `startup-root.sh` | `basic.target` 到達後 |
+| ネットワーク待機 | `firstboot-root-startup-network.service` | `startup-root-network.sh` | `network-online.target` 到達後 |
 
 ```
-実行タイミング: OS起動 → network.target 到達後 → startup-root.sh 実行 → サービス自己削除
-ログ出力先:    /var/log/make-rocky-bootable/firstboot-root-startup.log
+ログ出力先: /var/log/make-rocky-bootable/firstboot-root-startup.log
 ```
 
-### add-userプラグイン (startup-user.sh)
+各サービスは実行後にサービスファイルを自己削除するため、2回目以降の起動では実行されません。
+
+### add-userプラグイン
 
 **一般ユーザーの初回ログイン時に1回だけ自動実行されます。**
 
-`add-user` プラグインの「初回ログイン時の一般ユーザー起動サービスを有効化」を
-有効にした場合のみ機能します。
-ユーザーのsystemdサービスとして登録され、実行後は自己削除されます。
+プラグイン設定で2種類のサービスを独立して有効化でき、両方同時に有効にすることも可能です。
+
+| バリアント | サービス名 | スクリプト | 実行タイミング |
+|-----------|-----------|-----------|--------------|
+| 通常 | `firstboot-user-startup.service` | `startup-user.sh` | `default.target` 到達後 |
+| ネットワーク待機 | `firstboot-user-startup-network.service` | `startup-user-network.sh` | `network-online.target` 到達後 |
 
 ```
-実行タイミング: ユーザーログイン → default.target 到達後 → startup-user.sh 実行 → サービス自己削除
-ログ出力先:    ~/.local/log/make-rocky-bootable/firstboot-user-startup.log
+ログ出力先: ~/.local/log/make-rocky-bootable/firstboot-user-startup.log
 ```
 
 Kickstartに不慣れな方でも、これらのスクリプトに処理を追記するだけで

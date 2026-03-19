@@ -21,10 +21,12 @@ A ✓ in the "Default" column means the plugin is pre-selected.
 | Plugin | Description | OS | Default | Requires | Details |
 |--------|-------------|----|---------|----------|---------|
 | language-japanese-support | Japanese locale, keyboard, and timezone | All | — | — | [→](language-japanese-support.md) |
-| add-user | Create a general user account + optionally disable root SSH login + optionally run startup-user.sh on first login | All | — | — | [→](add-user.md) |
+| add-user | Create a general user account + optionally disable root SSH login + optionally run startup-user.sh / startup-user-network.sh on first login | All | — | — | [→](add-user.md) |
 | add-xfce-gui-support | XFCE desktop + XRDP | Rocky 8, 9 | — | — | [→](add-xfce-gui-support.md) |
+| xfce-autologin | Configure automatic login for a specified user on XFCE desktop | Rocky 8, 9 | — | add-xfce-gui-support | [→](xfce-autologin.md) |
 | add-kde-gui-support | KDE Plasma desktop + krdp (RDP) | Rocky 10 ⚠️ | — | add-user | [→](add-kde-gui-support.md) |
-| firstboot-root-startup | Run startup-root.sh as root on first boot | All | — | — | [→](firstboot-root-startup.md) |
+| kiosk-browser | Build and configure the kiosk browser with OS-specific desktop hardening | Rocky 8, 9, 10 | — | add-user, add-xfce-gui-support or add-kde-gui-support | [→](kiosk-browser.md) |
+| firstboot-root-startup | Run startup-root.sh (basic) and/or startup-root-network.sh (after network) as root on first boot | All | — | — | [→](firstboot-root-startup.md) |
 | default-sysprep | System cleanup (sysprep) | All | ✓ | — | [→](default-sysprep.md) |
 
 ## Creating Custom Plugins
@@ -118,3 +120,16 @@ Collected prompt values can be referenced in `[post]`:
 |--------|-------------|
 | `${variable}` | Replaced with the variable's value |
 | `${if_variable}...${endif_variable}` | Output only when variable is truthy |
+
+### OS-specific dependencies
+
+`requires` can be combined with OS-specific dependency keys in `[meta]`.
+
+```ini
+[meta]
+requires = add-user
+requires.rocky9 = add-xfce-gui-support
+requires.rocky10 = add-kde-gui-support
+```
+
+When the selected OS matches, `requires.<os_id>` is merged with `requires`.

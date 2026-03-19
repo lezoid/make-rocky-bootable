@@ -1,0 +1,11 @@
+{
+  "allow": [
+    "google.com",
+    "*.google.com"
+  ],
+  "deny": [
+    "mail.google.com",
+    "yahoo.co.jp",
+    "*.yahoo.co.jp"
+  ]
+}
