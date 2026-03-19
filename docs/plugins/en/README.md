@@ -21,6 +21,7 @@ A ✓ in the "Default" column means the plugin is pre-selected.
 | Plugin | Description | OS | Default | Requires | Details |
 |--------|-------------|----|---------|----------|---------|
 | language-japanese-support | Japanese locale, keyboard, and timezone | All | — | — | [→](language-japanese-support.md) |
+| dnf-update | Run `dnf -y update` during `%post` after dnf tuning | Rocky 8, 9, 10 | — | — | [→](dnf-update.md) |
 | add-user | Create a general user account + optionally disable root SSH login + optionally run startup-user.sh / startup-user-network.sh on first login | All | — | — | [→](add-user.md) |
 | add-xfce-gui-support | XFCE desktop + XRDP | Rocky 8, 9 | — | — | [→](add-xfce-gui-support.md) |
 | xfce-autologin | Configure automatic login for a specified user on XFCE desktop | Rocky 8, 9 | — | add-xfce-gui-support | [→](xfce-autologin.md) |
