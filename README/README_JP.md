@@ -1,9 +1,12 @@
 # make-rocky-bootable
 
 応答形式で手軽にカスタムブータブルISOを簡単に作成できるツールです :)
+
 GUIや自前のスクリプトを含むLiveイメージの作成が可能です。
 
-![screenshot](res/screenshot0.png)
+<p align="center">
+  <img src="res/screenshot0.png" width="50%">
+</p>
 
 ## 言語
 - [英語 (English)](../README.md)
@@ -22,15 +25,18 @@ GUIや自前のスクリプトを含むLiveイメージの作成が可能です�
 ## 概要
 
 `make-rocky-bootable` はプラグインベースのシステムを採用したRocky Linux用ブータブルISO作成ツールです。
-プラグインでブータブルISOのカスタマイズを実現しており、例えばGUIの導入やRDPの有効化やスタートアップスクリプトの組み込みをサポートしています。
-kickstartの知識がなくても、手軽に対話形式のTUIでOSバージョン・プラグイン機能・ブートモードを選択するだけで、カスタムISOを自動生成します。
+プラグイン機能でカスタマイズを実現しており、例えばGUIの導入やRDPの有効化やスタートアップスクリプトの組み込みをサポートしています。
 
-プラグインにより、全画面ブラウザ環境（kioskモード）にも対応しています。
-Windows ベースで特定の Web ページを全画面表示する用途の端末を、Rocky Linux ベースの環境へ置き換えることも可能です。
+例えば、kiosk-browserプラグインを使うと、LiveCDで特定ページを全画面ブラウザ環境（kioskモード）を表示させるだけのカスタマイジングもできます。
+Web ページを全画面表示する用途のPOSや組み込み端末を作る場合、本来はWindowsベース環境である程度のコストをかけて作る必要があります。
+しかしこのプラグインを使うと特定の、コストをかけず容易に実現ができます。
+LiveCDの再起動で復旧できますし、HDDも不要のため、運用コストを大きく下げることもできるはずです。
 
-![kiosk-browser screenshot](res/screenshot1.png)
+<p align="center">
+  <img src="res/screenshot1.png" width="50%">
+</p>
 
-**対応OSバージョン:**
+## ビルド対応OSバージョン
 
 | OS | GUI |
 |----|-----|
